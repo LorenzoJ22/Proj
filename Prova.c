@@ -55,7 +55,7 @@ void main()
         /* inbuf still contains the null terminator, so printf prints correctly */
         printf("%s\n", inbuf);              
     }
-    /*Ecco la prova */
+    /*Ecco la prova 2*/
     int x=0;
     exit(0);
 }
