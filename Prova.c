@@ -57,5 +57,5 @@ void main()
     }
     /*Ecco la prova 2*/
     int x=0;
-    exit(0);
+    exit(1);
 }
