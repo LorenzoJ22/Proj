@@ -1,0 +1,17 @@
+# --- File System Virtuale del Server ---
+# Ignora la cartella root e tutto il suo contenuto
+root/
+
+# --- File di Compilazione (C) ---
+# Ignora tutti i file oggetto intermedi
+*.o
+
+# Ignora gli eseguibili finali (nomi usati nel tuo Makefile)
+server
+client
+Server
+Client
+
+# --- File di Sistema / Editor ---
+.DS_Store
+.vscode/
