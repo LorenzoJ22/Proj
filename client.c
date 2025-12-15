@@ -37,6 +37,8 @@ int main(int argc, char *argv[]){
 
         send_message(sockfd, buffer);
 
+        memset(buffer, 0, sizeof(buffer));
+
         int n= receive_message(sockfd, buffer, sizeof(buffer));
         if(n <=0){
             printf("Connection closed by server\n");

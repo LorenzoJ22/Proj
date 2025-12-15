@@ -11,8 +11,9 @@
 #include "client_handler.h"
 #include "permissions.h"
 #include "system_ops.h"
+#include "values.h"
 
-#define GROUP_NAME "csap_group"
+
 
 
 
@@ -35,13 +36,15 @@ int main (int argc, char *argv[]) {
     printf("IP: %s\n", ip);
     printf("Port: %d\n", port);
 
+    create_group(GROUP_NAME);
+
 
 
 
     
 
     // Check if root directory exists, if not create it
-    sys_make_directory(root_dir, 0770);
+    sys_make_directory(root_dir, 0770, GROUP_NAME);
 
 
 

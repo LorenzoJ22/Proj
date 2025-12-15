@@ -1,9 +1,16 @@
 #include "client_handler.h"
 #include "session.h"
+#include "system_ops.h"
+#include "values.h"
 
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/types.h>
+#include <stdlib.h>
+
+
+
 
 void handle_client(int client_fd, const char *root_dir) {
 
@@ -43,8 +50,67 @@ void handle_client(int client_fd, const char *root_dir) {
                 char msg[] = "Login failed\n";
                 write(client_fd, msg, strlen(msg));
             }
+
+
+            printf("--- VERIFICA UTENTE ATTUALE ---\n");
+            system("whoami"); // Esegue il comando Linux e stampa l'output direttamente
+            printf("-------------------------------\n");
+
+            continue;
+
+
+            
+
+
+        }
+
+
+        // create_user command
+        if (strncmp(buffer, "create_user ", 12) ==0){
+
+            // check if logged in 
+            if (s.logged_in) {
+            char msg[] = "Cannot create user while logged in\n";
+            write(client_fd, msg, strlen(msg));
+            continue;
+            }
+
+
+            char username[64];  
+            char perm_str[8];
+
+           if (sscanf(buffer + 12, "%63s %7s", username, perm_str) != 2) {
+            char msg[] = "Use: create_user <username> <permissions>\n";
+                write(client_fd, msg, strlen(msg));
+                continue;
+            }
+
+            mode_t perms = strtol(perm_str, NULL, 8); // convert permissions string to mode_t
+
+            if(ensure_user_exists(username)){
+                char msg[] = "User already exists\n";
+                write(client_fd, msg, strlen(msg));
+                continue;
+            }
+
+            if (sys_create_user(username) == -1){
+                char msg[] = "User creation failed\n";
+                write(client_fd, msg, strlen(msg));
+                continue;
+            }
+
+            char full_path[PATH_MAX];
+
+            snprintf(full_path, sizeof(full_path), "%s/%s", root_dir, username);
+
+            sys_make_directory(full_path, perms, GROUP_NAME);
+
+            char msg[] = "User created successfully\n";
+            write(client_fd, msg, strlen(msg));
             continue;
         }
+
+
 
         //if not logged in, only allow login command
         if (!s.logged_in) {
@@ -53,8 +119,8 @@ void handle_client(int client_fd, const char *root_dir) {
             continue;
         }
 
-
-        // comando unknown
+        
+        // unknown command
         char msg[] = "Unknown command \n";
         write(client_fd, msg, strlen(msg));
 

@@ -10,6 +10,6 @@ void save_ids();
 int elevate_to_root();
 
 // drop to real user privileges
-int drop_to_real_user();
+int drop_to_real_user(uid_t real_uid, gid_t real_gid);
 
 #endif

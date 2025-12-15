@@ -10,6 +10,7 @@
 
 #include "system_ops.h"
 #include "session.h"
+#include "permissions.h"
 
 
 void session_init(Session *s, const char *root) {
@@ -34,52 +35,26 @@ int session_login(Session *s, const char *username) {
 
     printf("User lookup result: %s\n", user ? "found" : "not found");
 
-    
-    // if user does not exist, create it
-    if(user == NULL){
-        pid_t pid = fork();
-        printf("Creating user %s\n", username);
-        if (pid ==0){
-            sys_create_user(username);
-            exit(1);
-        }
-        waitpid(pid, NULL, 0);
+    if (user == NULL) {
+        return -1; // user does not exist
     }
-
-    user = getpwnam(username); // recheck if now user exists after creation attempt
-    if(user == NULL){
-        perror("User creation failed");
-        return -1; // user does not exist and creation failed
-    } 
 
     // switch to the user's UID and GID
 
     uid_t user_uid = user->pw_uid;
     gid_t user_gid = user->pw_gid;
 
-    if (setgid(user_gid) != 0) {
-        perror("Errore setgid");
-        return -1;
-    }
-
-    if (setuid(user_uid) != 0) {
-        perror("Errore setuid");
-        return -1;
-    }
-
+    drop_to_real_user(user_uid, user_gid); // ensure we are not root before switching
 
     strncpy(s->username, username, sizeof(s->username)); // set username of the session
+    printf("Set session username to: %s\n", s->username);
 
-    //strncat(s->home_dir, s->root_dir + "/" + s->username, sizeof(s->home_dir)); // set home directory in the format root_dir/username
-
-/*
-    DA IMPLEMENTARE LA CREAZIONE DELLA HOME SE NON ESISTE
-
+    snprintf(s->home_dir, sizeof(s->home_dir), "%s/%s", s->root_dir, username); // set home directory
+    printf("Set home directory to: %s\n", s->home_dir);
 
 
-    sys_make_directory(s->home_dir, 0750);
-*/
     strncpy(s->current_dir, s->home_dir, sizeof(s->current_dir)); // set current directory to home directory
+    printf("Set current directory to: %s\n", s->current_dir);
 
 
     s->logged_in = 1; // mark as logged in
