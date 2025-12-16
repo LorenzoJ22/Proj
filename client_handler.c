@@ -2,12 +2,14 @@
 #include "session.h"
 #include "system_ops.h"
 #include "values.h"
+#include "permissions.h"
 
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
 #include <stdlib.h>
+#include <pwd.h>
 
 
 
@@ -99,11 +101,41 @@ void handle_client(int client_fd, const char *root_dir) {
                 continue;
             }
 
+
+
+            printf("--- VERIFICA UTENTE prima di creazione ---\n");
+            system("whoami"); // Esegue il comando Linux e stampa l'output direttamente
+            printf("-------------------------------\n");
+
+
+
+
+            drop_privileges_to_user(username);
+
+
+            printf("--- VERIFICA UTENTE dopo il drop ---\n");
+            system("whoami"); // Esegue il comando Linux e stampa l'output direttamente
+            printf("-------------------------------\n");
+
             char full_path[PATH_MAX];
+
+            
 
             snprintf(full_path, sizeof(full_path), "%s/%s", root_dir, username);
 
             sys_make_directory(full_path, perms, GROUP_NAME);
+
+
+
+            elevate_to_root();
+
+
+
+             printf("--- VERIFICA UTENTE dopo l'elevate ---\n");
+            system("whoami"); // Esegue il comando Linux e stampa l'output direttamente
+            printf("-------------------------------\n");
+
+
 
             char msg[] = "User created successfully\n";
             write(client_fd, msg, strlen(msg));
