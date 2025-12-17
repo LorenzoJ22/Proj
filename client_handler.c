@@ -54,9 +54,7 @@ void handle_client(int client_fd, const char *root_dir) {
             }
 
 
-            printf("--- VERIFICA UTENTE ATTUALE ---\n");
-            system("whoami"); // Esegue il comando Linux e stampa l'output direttamente
-            printf("-------------------------------\n");
+            
 
             continue;
 
@@ -101,39 +99,37 @@ void handle_client(int client_fd, const char *root_dir) {
                 continue;
             }
 
-
-
-            printf("--- VERIFICA UTENTE prima di creazione ---\n");
-            system("whoami"); // Esegue il comando Linux e stampa l'output direttamente
-            printf("-------------------------------\n");
-
-
-
-
-            drop_privileges_to_user(username);
-
-
-            printf("--- VERIFICA UTENTE dopo il drop ---\n");
-            system("whoami"); // Esegue il comando Linux e stampa l'output direttamente
-            printf("-------------------------------\n");
-
             char full_path[PATH_MAX];
+            snprintf(full_path, sizeof(full_path), "%s/%s", root_dir, username);
+
+
+
+            pid_t pid = fork();
+            if (pid < 0) {
+                perror("Fork failed");
+                exit(1);
+            }
+
+            if (pid == 0) { // child process
+                drop_privileges_to_user(username);
+                sys_make_directory(full_path, perms, GROUP_NAME);
+
+                
+                exit(0);
+            }
+
+            waitpid(pid, NULL, 0); // parent waits for child to finish
+
+           
 
             
 
-            snprintf(full_path, sizeof(full_path), "%s/%s", root_dir, username);
+            
 
-            sys_make_directory(full_path, perms, GROUP_NAME);
+            
 
+            
 
-
-            elevate_to_root();
-
-
-
-             printf("--- VERIFICA UTENTE dopo l'elevate ---\n");
-            system("whoami"); // Esegue il comando Linux e stampa l'output direttamente
-            printf("-------------------------------\n");
 
 
 
