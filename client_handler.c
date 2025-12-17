@@ -29,9 +29,6 @@ void handle_client(int client_fd, const char *root_dir) {
         if (n <= 0) break; // connection closed or error
 
         printf("[FIGLIO %d] Messaggio ricevuto: %s\n", getpid(), buffer);
-
-        
-
         // login command
         if (strncmp(buffer, "login ", 6) == 0) {
             char username[64];
@@ -52,16 +49,7 @@ void handle_client(int client_fd, const char *root_dir) {
                 char msg[] = "Login failed\n";
                 write(client_fd, msg, strlen(msg));
             }
-
-
-            
-
             continue;
-
-
-            
-
-
         }
 
 
@@ -103,7 +91,8 @@ void handle_client(int client_fd, const char *root_dir) {
             snprintf(full_path, sizeof(full_path), "%s/%s", root_dir, username);
 
 
-
+            sys_make_directory(full_path, perms, GROUP_NAME,username);
+            /*
             pid_t pid = fork();
             if (pid < 0) {
                 perror("Fork failed");
@@ -112,16 +101,14 @@ void handle_client(int client_fd, const char *root_dir) {
 
             if (pid == 0) { // child process
                 drop_privileges_to_user(username);
-                sys_make_directory(full_path, perms, GROUP_NAME);
-
-                
+                  
                 exit(0);
             }
 
             waitpid(pid, NULL, 0); // parent waits for child to finish
 
            
-
+*/
             
 
             

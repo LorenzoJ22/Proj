@@ -44,7 +44,7 @@ int main (int argc, char *argv[]) {
     
 
     // Check if root directory exists, if not create it
-    sys_make_directory(root_dir, 0770, GROUP_NAME);
+    sys_make_directory(root_dir, 0770, GROUP_NAME, "root");
 
 
 

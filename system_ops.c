@@ -36,11 +36,12 @@ int sys_create_user(const char *username) {
     return 1;
 }
 
-void sys_make_directory(const char *path, mode_t mode, const char *groupname) {
+void sys_make_directory(const char *path, mode_t mode, const char *groupname, const char *username) {
 
     struct group *grp = getgrnam(groupname);
-    if (grp == NULL) {
-        perror("Error: Group not found");
+    struct passwd *pwd = getpwnam(username);
+    if (grp == NULL || pwd == NULL) {
+        perror("Error: Group or user not found");
         exit(1);
     }
 
@@ -57,7 +58,7 @@ void sys_make_directory(const char *path, mode_t mode, const char *groupname) {
         }
     }
 
-    if (chown(path, -1, new_gid) == -1) {
+    if (chown(path, pwd->pw_uid, new_gid) == -1) {
         perror("Error changing group ownership");
         exit(1);
     }
