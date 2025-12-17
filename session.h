@@ -1,7 +1,7 @@
 #ifndef SESSION_H
 #define SESSION_H
 
-#include <limits.h>
+#include "values.h"
 
 // Structure to hold session information of a connected client
 
