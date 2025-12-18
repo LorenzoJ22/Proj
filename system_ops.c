@@ -57,6 +57,7 @@ void sys_make_directory(const char *path, mode_t mode, const char *groupname, co
             exit(1);
         }
     }
+    //printf("Directory already created\n");
 
     if (chown(path, pwd->pw_uid, new_gid) == -1) {
         perror("Error changing group ownership");

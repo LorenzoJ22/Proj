@@ -12,6 +12,20 @@
 #include <pwd.h>
 
 
+void send_prompt(int client_fd, Session *s) {
+    char prompt[4190];
+    
+    if (s->logged_in) {
+        // Formato: username@shell:/path/corrente$ 
+        snprintf(prompt, sizeof(prompt), "\033[1;32m%s@shell\033[0m:\033[1;34m%s\033[0m$ ", 
+                 s->username, s->current_dir);
+    } else {
+        // Formato: guest:/path/corrente>
+        snprintf(prompt, sizeof(prompt), "guest:%s> ", s->current_dir);
+    }
+    
+    write(client_fd, prompt, strlen(prompt));
+}
 
 
 void handle_client(int client_fd, const char *root_dir) {
@@ -21,6 +35,8 @@ void handle_client(int client_fd, const char *root_dir) {
 
     char buffer[1024];
 
+    
+    send_prompt(client_fd, &s);
 
     while (1) {
 
@@ -40,6 +56,8 @@ void handle_client(int client_fd, const char *root_dir) {
             if (login_result == 0) {
                 char msg[] = "Login successful\n";
                 write(client_fd, msg, strlen(msg));
+                memset(buffer, 0, sizeof(buffer));
+                send_prompt(client_fd, &s);
             } 
             else if (login_result == -2) {
                 char msg[] = "Already logged in\n";
@@ -139,7 +157,10 @@ void handle_client(int client_fd, const char *root_dir) {
         char msg[] = "Unknown command \n";
         write(client_fd, msg, strlen(msg));
 
+    memset(buffer, 0, sizeof(buffer));
+    send_prompt(client_fd, &s);
 
+        
     }
 
 

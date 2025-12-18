@@ -26,8 +26,15 @@ int main(int argc, char *argv[]){
     while(1){
 
         memset(buffer, 0, sizeof(buffer));
+        int n= receive_message(sockfd, buffer, sizeof(buffer));
+        if(n <=0){
+            printf("Connection closed by server\n");
+            break;
+        }
 
-        printf("Insert command to send to server: ");
+        printf("Response from server: %s", buffer);
+        memset(buffer, 0, sizeof(buffer));
+        //printf("Insert command to send to server: ");
         fgets(buffer, sizeof(buffer), stdin);
         buffer[strcspn(buffer, "\n")] = 0; //remove newline character
 
@@ -37,15 +44,9 @@ int main(int argc, char *argv[]){
 
         send_message(sockfd, buffer);
 
-        memset(buffer, 0, sizeof(buffer));
+        
 
-        int n= receive_message(sockfd, buffer, sizeof(buffer));
-        if(n <=0){
-            printf("Connection closed by server\n");
-            break;
-        }
-
-        printf("Response from server: %s\n", buffer);
+        
     }
     
 
