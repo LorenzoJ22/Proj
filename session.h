@@ -10,7 +10,7 @@ typedef struct {
     char username[64]; 
     char current_dir[PATH_MAX]; // current working directory
     char home_dir[PATH_MAX]; // home directory
-    char root_dir[PATH_MAX]; // root directory
+    char root_dir[64]; // root directory
 } Session;
 
 

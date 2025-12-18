@@ -13,7 +13,7 @@ COMMON_SRCS = network.c
 # client_handler.c: logica del processo figlio (dopo la fork)
 # session.c: gestione login e utenti
 # system_ops.c: operazioni su file system (create, delete, ecc.)
-SERVER_SRCS = server.c client_handler.c session.c system_ops.c permissions.c
+SERVER_SRCS = server.c client_handler.c session.c system_ops.c permissions.c commands_client.c
 
 # File specifici del CLIENT
 # client.c: il main e l'interfaccia utente del client
