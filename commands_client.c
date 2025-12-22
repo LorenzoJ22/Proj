@@ -81,5 +81,80 @@ void create_user(int client_fd, char *buffer, Session *s){
             return;
 }
 
+void create(int client_fd, char *buffer, Session *s){
+            
+            if (!(s->logged_in)) {
+                char msg[] = "Cannot create file while you are guest\n";
+                write(client_fd, msg, strlen(msg));
+                return;
+            }
+            /*int is_abs =0;
+            char * pa = buffer +7;
+            if(strncmp(pa, "root")){}
+            */
+
+            /*int is_dir = 0; // 0 = file, 1 = directory
+
+            // Puntatore che inizia DOPO "create " (quindi a buffer + 7)
+            char *args = buffer + 7;
+
+            // CONTROLLO OPZIONE -d
+            // Cerchiamo se i prossimi caratteri sono "-d " (nota lo spazio dopo la d)
+            if (strncmp(args, "-d ", 2) == 0) {
+            is_dir = 1;      // Abbiamo trovato l'opzione!
+            args += 3;       // Spostiamo il puntatore avanti di 3 posti (salta "-d ")
+                         // Ora args punta all'inizio del path
+    }*/
+            char path[64];  
+            char perm_str[8];
+
+            if (sscanf(buffer + 7, "%63s %7s", path, perm_str) != 2 || strncmp(path, ".",1) == 0 || strncmp(path, "..",2) == 0) {
+                char msg[] = "Use: create [-d] <path> <permissions>\n";
+                write(client_fd, msg, strlen(msg));
+                return;
+            }
+
+            mode_t perms = strtol(perm_str, NULL, 8); // convert permissions string to mode_t
+
+           /* if(ensure_file_exists(path)){
+                char msg[] = "File already exists\n";
+                write(client_fd, msg, strlen(msg));
+                return;
+            }*/
+
+            size_t needed_len = strlen(s->current_dir) + strlen(path) + 2; 
+            
+            char full_path[PATH_MAX];//il full_path inizializzato con 4096 ha la stessa misura del current_dir quindi nel peggiore dei casi con snprintf la tronca uscendo dalla stringa
+            
+            if (needed_len > PATH_MAX) {
+                char msg[] = "Error: Path too long\n";
+                write(client_fd, msg, strlen(msg));
+                return;
+            }//per ora controllo se non tronca
+            
+            snprintf(full_path, sizeof(full_path), "%s/%s", s->current_dir, path);
+            
+            /*if(is_dir){
+                //sys_make_directory(full_path, perms, GROUP_NAME,s->username);  
+                char msg[] = "User created successfully\n";
+                write(client_fd, msg, strlen(msg));
+                return;
+
+            }
+            else{
+                sys_make_file(full_path, perms, GROUP_NAME, s->username);  
+                char msg[] = "File created successfully\n";
+                write(client_fd, msg, strlen(msg));
+                return;
+            }*/
+           //bisogna specificare il path se assoluto o no
+
+            sys_make_file(path, perms, GROUP_NAME, s->username);  
+                char msg[] = "File created successfully\n";
+                write(client_fd, msg, strlen(msg));
+                return;
+}
+
+
 
 

@@ -62,3 +62,12 @@ int session_login(Session *s, const char *username) {
     return 0; // login successful
 
     } 
+
+    /*int session_update_dir(Session *s, const char *path){
+        strncpy(s->parent_dir, s->current_dir, sizeof(s->current_dir));
+        strncpy(s->current_dir, path, sizeof(s->current_dir)); // set current directory to home directory
+        printf("Set current directory to: %s\n", s->current_dir);
+
+         
+
+}*/

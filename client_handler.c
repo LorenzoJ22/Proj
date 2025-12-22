@@ -62,6 +62,12 @@ void handle_client(int client_fd, const char *root_dir) {
         }
 
 
+        //create<path><permission> command, create a file 
+        if(strncmp(buffer, "create ", 7) ==0){
+            create(client_fd, buffer, &s);
+            continue;
+        }
+
 
         //if not logged in, only allow login command
         if (!s.logged_in) {

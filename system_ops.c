@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <fcntl.h>
 
 #include "system_ops.h"
 #include "values.h"
@@ -50,7 +51,7 @@ void sys_make_directory(const char *path, mode_t mode, const char *groupname, co
 
     struct stat st;
     if (stat(path, &st) == -1) {
-        umask(002); // clear umask to set exact permissions
+        //umask(002); // clear umask to set exact permissions
         printf("Creating directory at %s\n", path);
         if (mkdir(path, mode) < 0) {
             perror("Failed to create directory");
@@ -58,6 +59,42 @@ void sys_make_directory(const char *path, mode_t mode, const char *groupname, co
         }
     }
     //printf("Directory already created\n");
+
+    if (chown(path, pwd->pw_uid, new_gid) == -1) {
+        perror("Error changing group ownership");
+        exit(1);
+    }
+
+    //umask(022); // reset umask
+
+    
+}
+
+void sys_make_file(const char *path, mode_t mode, const char *groupname, const char *username) {
+
+    struct group *grp = getgrnam(groupname);
+    struct passwd *pwd = getpwnam(username);
+    if (grp == NULL || pwd == NULL) {
+        perror("Error: Group or user not found");
+        exit(1);
+    }
+
+    gid_t new_gid = grp->gr_gid;
+
+    struct stat st;
+    if (stat(path, &st) == -1) {
+        umask(002); // clear umask to set exact permissions
+        printf("Creating file at %s\n", path);
+        int fd;
+        if ((fd = open(path, O_CREAT | O_RDWR | O_TRUNC, mode)) < 0) {
+            perror("Failed to create file"); //aggiungere handler per  EACCES quando non ha permessi di creazione
+            exit(1);
+        } 
+        close(fd); // Chiudi il file descriptor
+        printf("File creato con permessi  \n.");
+    }
+
+    //printf("File is already created\n");
 
     if (chown(path, pwd->pw_uid, new_gid) == -1) {
         perror("Error changing group ownership");
@@ -92,3 +129,5 @@ int create_group(const char *groupname) {
     waitpid(pid, NULL, 0);
     return 1;
 }
+
+
