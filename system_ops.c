@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #include "system_ops.h"
 #include "values.h"
@@ -58,7 +59,7 @@ void sys_make_directory(const char *path, mode_t mode, const char *groupname, co
             exit(1);
         }
     }
-    //printf("Directory already created\n");
+        printf("Directory already created\n");
 
     if (chown(path, pwd->pw_uid, new_gid) == -1) {
         perror("Error changing group ownership");
@@ -70,7 +71,7 @@ void sys_make_directory(const char *path, mode_t mode, const char *groupname, co
     
 }
 
-void sys_make_file(const char *path, mode_t mode, const char *groupname, const char *username) {
+int sys_make_file(const char *path, mode_t mode, const char *groupname, const char *username) {
 
     struct group *grp = getgrnam(groupname);
     struct passwd *pwd = getpwnam(username);
@@ -82,17 +83,26 @@ void sys_make_file(const char *path, mode_t mode, const char *groupname, const c
     gid_t new_gid = grp->gr_gid;
 
     struct stat st;
-    if (stat(path, &st) == -1) {
+    //if (stat(path, &st) == -1) { //it is not necessary until we handle this case in the errno of the open function
         umask(002); // clear umask to set exact permissions
         printf("Creating file at %s\n", path);
         int fd;
-        if ((fd = open(path, O_CREAT | O_RDWR | O_TRUNC, mode)) < 0) {
-            perror("Failed to create file"); //aggiungere handler per  EACCES quando non ha permessi di creazione
-            exit(1);
+        if ((fd = open(path, O_CREAT | O_RDWR | O_EXCL, mode)) < 0) {
+        if (errno == EEXIST) {
+            fprintf(stderr, "Error: file '%s' already exists.\n", path);
+            return -errno;//alternative we can pass the client file in the sys_make_file in order to write message of warnings to client shell like "file already exists" 
         } 
-        close(fd); // Chiudi il file descriptor
-        printf("File creato con permessi  \n.");
-    }
+        else if (errno == EACCES) {
+            fprintf(stderr, "Error: Permession denied to create file at '%s'.\n", path);
+            exit(1);
+        }else{
+            perror("Failed to create file"); 
+            exit(1);
+            }
+        } 
+        close(fd); 
+        printf("File created with permission \n.");
+    //}
 
     //printf("File is already created\n");
 
@@ -103,7 +113,7 @@ void sys_make_file(const char *path, mode_t mode, const char *groupname, const c
 
     umask(022); // reset umask
 
-    
+    return 0;
 }
 
 

@@ -38,11 +38,12 @@ void handle_client(int client_fd, const char *root_dir) {
     char buffer[1024];
 
     
-    send_prompt(client_fd, &s);
+    //send_prompt(client_fd, &s);
 
     while (1) {
 
         memset(buffer, 0, sizeof(buffer)); // clear buffer
+        send_prompt(client_fd, &s);
         int n = read(client_fd, buffer, sizeof(buffer));
         if (n <= 0) break; // connection closed or error
 
@@ -62,7 +63,7 @@ void handle_client(int client_fd, const char *root_dir) {
         }
 
 
-        //create<path><permission> command, create a file 
+        //create [-d] <path><permission> command, create a file 
         if(strncmp(buffer, "create ", 7) ==0){
             create(client_fd, buffer, &s);
             continue;
@@ -82,7 +83,7 @@ void handle_client(int client_fd, const char *root_dir) {
         write(client_fd, msg, strlen(msg));
 
         memset(buffer, 0, sizeof(buffer));
-        send_prompt(client_fd, &s);
+        //send_prompt(client_fd, &s);
 
         
     }

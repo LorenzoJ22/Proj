@@ -49,8 +49,6 @@ int main (int argc, char *argv[]) {
 
 
 
-
-
     int server_fd = create_server_socket(ip, port);
     printf("Server listening on %s:%d\n", ip, port);
 
