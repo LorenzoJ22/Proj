@@ -44,12 +44,19 @@ void handle_client(int client_fd, const char *root_dir) {
 
         memset(buffer, 0, sizeof(buffer)); // clear buffer
         send_prompt(client_fd, &s);
-        int n = read(client_fd, buffer, sizeof(buffer));
+        int n = read(client_fd, buffer, sizeof(buffer)-1);
         if (n <= 0) break; // connection closed or error
-
+        buffer[n] = '\0'; //we have to terminate with \0 because read didn't put it
         printf("[FIGLIO %d] Messaggio ricevuto: %s\n", getpid(), buffer);
+        printf("[DEBUG] Buffer pulito: '%s' (lunghezza: %lu)\n", buffer, strlen(buffer));
+        //buffer[strcspn(buffer, "\n\r")] = 0;
+
+         if (strlen(buffer) == 0) {
+            dprintf(client_fd,"Void space: '%s'\n", buffer);
+            continue; 
+        } 
+
         // login command
-                   
         if (strncmp(buffer, "login ", 6) == 0) {
             login(buffer, client_fd, &s);
             continue;
@@ -69,6 +76,15 @@ void handle_client(int client_fd, const char *root_dir) {
             continue;
         }
 
+        if(strncmp(buffer, "cd ", 3)==0){
+            change_directory(client_fd, buffer, &s);
+            continue;
+        }
+
+        if(strncmp(buffer, "chmod ", 6)==0){
+            chmods(client_fd, buffer, &s);
+            continue;
+        }
 
         //if not logged in, only allow login command
         if (!s.logged_in) {
@@ -81,28 +97,22 @@ void handle_client(int client_fd, const char *root_dir) {
         // unknown command
         char msg[] = "Unknown command \n";
         write(client_fd, msg, strlen(msg));
-
-        memset(buffer, 0, sizeof(buffer));
+        
+        //dprintf(client_fd,"The input was buffer = '%s'\n", buffer);
+        /* char terminator = '\0'; 
+        write(client_fd, &terminator, 1); */
+        //memset(buffer, 0, sizeof(buffer));
         //send_prompt(client_fd, &s);
 
         
     }
-
-
-
-
-
-
-
-
-
 
     
 
     // read message
     int n = read(client_fd, buffer, sizeof(buffer));
     if (n > 0) {
-        printf("[FIGLIO %d] Messaggio ricevuto: %s\n", getpid(), buffer);
+        printf("[FIGLIO %d] Messaggio ricevuto da fine: %s\n", getpid(), buffer);
     }
 
     // send response

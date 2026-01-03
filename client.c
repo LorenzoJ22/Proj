@@ -22,30 +22,30 @@ int main(int argc, char *argv[]){
     printf("Connesso a %s:%d\n", ip, port);
 
 
-
     while(1){
 
-        memset(buffer, 0, sizeof(buffer));
-        int n= receive_message(sockfd, buffer, sizeof(buffer));
+        memset(buffer, 0, sizeof(buffer)); 
+        int n= receive_message(sockfd, buffer, sizeof(buffer)-1);
         if(n <=0){
             printf("Connection closed by server\n");
             break;
         }
-
-        printf("Response from server: %s", buffer);
+        //buffer[n] = '\0';        
+        printf("Size: %ld and Response from server:%s",strlen(buffer), buffer);
         memset(buffer, 0, sizeof(buffer));
         //printf("Insert command to send to server: ");
+        //fflush(stdout);
         fgets(buffer, sizeof(buffer), stdin);
         buffer[strcspn(buffer, "\n")] = 0; //remove newline character
-
+        //^i try to move the remover of \n beacuse he shift the output..
+        
+        
+        
+        send_message(sockfd, buffer);
+        
         if(strcmp(buffer, "exit") == 0){
             break;
         }
-
-        send_message(sockfd, buffer);
-
-        
-
         
     }
     
