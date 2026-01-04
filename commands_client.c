@@ -21,9 +21,12 @@ void login( char *buffer, int client_fd, Session *s){
                 sscanf(buffer + 6, "%63s", username);
                 int login_result = session_login(s, username);
             if (login_result == 0) {
+                chroot(s->root_dir); // change root to server's root directory
+                chdir(s->current_dir); // change to user's directory
                 char msg[] = "Login successful\n";
                 write(client_fd, msg, strlen(msg));
                 memset(buffer, 0, sizeof(&buffer));
+                sleep(1); // wait a moment to ensure message is sent before prompt
                 send_prompt(client_fd, s);
             } 
             else

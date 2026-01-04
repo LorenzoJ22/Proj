@@ -101,5 +101,32 @@ int send_message(int sockfd, const char *msg) {
 
 
 int receive_message(int sockfd, char *buffer, int size) {
-    return read(sockfd, buffer, size);
+     int total = 0;
+
+    if (size <= 0) return -1;
+
+    while (total < size - 1) {
+        char c;
+        ssize_t n = read(sockfd, &c, 1);
+
+        if (n < 0) {
+            perror("Read failed");
+            return -1;
+        }
+        if (n == 0) {
+            // connection closed
+            return 0;
+        }
+
+        buffer[total++] = c;
+
+        if (c == '\0') {
+            // end of message
+            return total;
+        }
+    }
+
+    //the message is too long: truncate but close properly
+    buffer[size - 1] = '\0';
+    return total;
 }

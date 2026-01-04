@@ -26,7 +26,7 @@ void send_prompt(int client_fd, Session *s) {
         snprintf(prompt, sizeof(prompt), "guest:%s> ", s->current_dir);
     }
     
-    write(client_fd, prompt, strlen(prompt));
+    write(client_fd, prompt, strlen(prompt) + 1);
 }
 
 
@@ -87,26 +87,6 @@ void handle_client(int client_fd, const char *root_dir) {
         
     }
 
-
-
-
-
-
-
-
-
-
-    
-
-    // read message
-    int n = read(client_fd, buffer, sizeof(buffer));
-    if (n > 0) {
-        printf("[FIGLIO %d] Messaggio ricevuto: %s\n", getpid(), buffer);
-    }
-
-    // send response
-    char response[] = "Ciao dal server!";
-    write(client_fd, response, strlen(response) + 1);
 
     close(client_fd);
 }
