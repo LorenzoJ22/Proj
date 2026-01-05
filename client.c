@@ -34,7 +34,8 @@ int main(int argc, char *argv[]){
 
     while(1){
 
-        printf("%s", prompt);
+        //printf("%s", prompt);
+        //printf("aaaaaaaaaaaaaa");
         //fflush(stdout);
 
         /*memset(buffer, 0, sizeof(buffer));
@@ -78,7 +79,6 @@ int main(int argc, char *argv[]){
             break;
         }
 
-        
     }
     
 
