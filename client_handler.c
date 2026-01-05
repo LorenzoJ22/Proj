@@ -52,7 +52,7 @@ void handle_client(int client_fd, const char *root_dir) {
         //buffer[strcspn(buffer, "\n\r")] = 0;
 
          if (strlen(buffer) == 0) {
-            dprintf(client_fd,"Void space: '%s'\n", buffer);
+            //dprintf(client_fd,"Void space: '%s'\n", buffer);
             continue; 
         } 
 
@@ -86,6 +86,17 @@ void handle_client(int client_fd, const char *root_dir) {
             continue;
         }
 
+        if(strncmp(buffer, "move ", 5)==0){
+            move(client_fd, buffer, &s);
+            continue;
+        }
+
+        if(strncmp(buffer, "list ", 5)==0){
+            list(client_fd, buffer, &s);
+            continue;
+        }
+
+
         //if not logged in, only allow login command
         if (!s.logged_in) {
             char msg[] = "Login first or create user command\n";
@@ -96,7 +107,7 @@ void handle_client(int client_fd, const char *root_dir) {
         
         // unknown command
         char msg[] = "Unknown command \n";
-        write(client_fd, msg, strlen(msg));
+        //write(client_fd, msg, strlen(msg));
         
         //dprintf(client_fd,"The input was buffer = '%s'\n", buffer);
         /* char terminator = '\0'; 
