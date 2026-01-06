@@ -123,28 +123,6 @@ int sys_make_file(const char *path, mode_t mode, const char *groupname, const ch
     return 0;
 }
 
-//for now is not available this function
-/* void change_dir(const char *path, int client_fd, Session *s){
-
-    char msg[PATH_MAX + 100];
-
-    if(chdir(path)!=0){
-        //it failed, we have to report the error
-        printf("Command cd failed at %s\n", path);
-        snprintf(msg, sizeof(msg), "cd failed: %s\n", strerror(errno));
-        write(client_fd, msg, strlen(msg));
-    }else{
-        //Directory updated correctly
-        //update the session current_dir
-       if (getcwd(s->current_dir, sizeof(s->current_dir)) != NULL) {
-            printf("Directory changed at: %s\n", s->current_dir);
-            dprintf(client_fd, "Your directory has changed: %s\n", s->current_dir);
-        } else {
-            printf("Error cwd not found at %s\n", path);
-            dprintf(client_fd, "Critic error: impossible to get CWD .\n");
-        }
-    }
-} */
 
 
 int create_group(const char *groupname) {

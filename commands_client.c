@@ -26,6 +26,12 @@ void login( char *buffer, int client_fd, Session *s){
                 char msg[] = "Login successful\n";
                 write(client_fd, msg, strlen(msg));
                 memset(buffer, 0, sizeof(&buffer));
+                char cwd[PATH_MAX];
+                char curr[PATH_MAX];
+                dprintf(client_fd,"Cur: %s\n", getcwd(cwd, PATH_MAX));
+                snprintf(curr, PATH_MAX, "/%s", s->username);
+                chdir(curr);
+                dprintf(client_fd,"Cur dopo ch login: %s\n", getcwd(cwd, PATH_MAX));
                 //send_prompt(client_fd, s);
             } 
             else
@@ -230,7 +236,7 @@ void create(int client_fd, char *buffer, Session *s){
 } */
 
 
-void change_directory(int client_fd, char *buffer, Session *s) {
+/* void change_directory(int client_fd, char *buffer, Session *s) {
     
     if (!(s->logged_in)) {
             char msg[] = "Cannot create file while you are guest\n";
@@ -238,17 +244,6 @@ void change_directory(int client_fd, char *buffer, Session *s) {
             return;
         }
     
-   /*  char *args = buffer + 3; 
-    
-    args[strcspn(args, "\n")] = 0;
-
-    char path[64];
-    
-    if (sscanf(args, "%63s ", path) != 1) {
-                char msg[] = "Use: cd <path>\n";
-                write(client_fd, msg, strlen(msg));
-                return;
-            } */
 
    
     char *command;
@@ -263,17 +258,7 @@ void change_directory(int client_fd, char *buffer, Session *s) {
         return;
     }
     
-    /* dprintf(client_fd, "Your path passed is: %s\n", path);
-    dprintf(client_fd, "Your home directory in general is: %s\n", s->home_dir);
-    dprintf(client_fd, "Your current directory is: %s\n", s->current_dir); */
     
-    /* size_t resp_size = 262144; 
-    char *response_buffer = malloc(resp_size);
-    if (!response_buffer) {
-        perror("malloc list buffer");
-        return;
-    }
-    memset(response_buffer, 0, resp_size); */
 
     //the case where the user pass nothing to cd
     if(path==NULL){
@@ -309,14 +294,88 @@ void change_directory(int client_fd, char *buffer, Session *s) {
 
         printf("User changed dir to: %s\n", s->current_dir);
         //usare chdir per spostare l'intero processo
-        chdir(full_path);//da rivedere!!
+        //chdir(full_path);//da rivedere!! Prima va messo il chroot 
         char msg[PATH_MAX + 50];
         snprintf(msg, sizeof(msg), "Directory changed to: %s\n", s->current_dir);
         write(client_fd, msg, strlen(msg));
 
     } else {
+        dprintf(client_fd,"access: %d ", access(full_path, X_OK));
+        dprintf(client_fd,"S_ISDIR: %d ", S_ISDIR(sb.st_mode));
+        dprintf(client_fd,"stat: %d ", stat(full_path, &sb) == 0);
         // FAIL: directory does not exist or is not a directory
         char msg[] = "Error: Directory does not exist or you don't have permission\n";
+        write(client_fd, msg, strlen(msg));
+    }
+} */
+
+void change_directory(int client_fd, char *buffer, Session *s) {
+    
+    // 1. Controllo Login
+    if (!(s->logged_in)) {
+        char msg[] = "Cannot change directory while you are guest\n";
+        write(client_fd, msg, strlen(msg));
+        return;
+    }
+
+    // 2. Parsing del comando (cd <path>)
+    char *command = strtok(buffer, " \t\n"); // "cd"
+    char *path_arg = strtok(NULL, " \t\n");  // "../foto" o NULL
+
+    if (command == NULL || strncmp(command, "cd", 2) != 0) {
+        dprintf(client_fd, "Wrong command!\n");
+        return;
+    }
+
+    // 3. Gestione del caso "cd" senza argomenti -> vai alla Home
+    // NOTA: In ambiente chroot, la home è spesso "/" o "/home" relativo alla gabbia.
+    if (path_arg == NULL) {
+        // Se s->home_dir è un path assoluto del sistema reale (es /srv/ftp),
+        // dentro il chroot potrebbe non avere senso. 
+        // Assumiamo che dentro il chroot la home sia la radice "/" o che s->home_dir sia già adattato.
+        //char full[PATH_MAX];
+        //snprintf(full, PATH_MAX, "%s/%s", "/",s->username);
+        //path_arg = full;  PER ADESSO COMMENTO, MA DA FINIRE!
+            
+    }
+
+    // 4. Risoluzione del percorso con realpath()
+    // realpath prende il path relativo (es. ".." o "foto") e lo risolve 
+    // basandosi sulla directory corrente del processo (già chrootato).
+    char resolved_path[PATH_MAX];
+    char cwd[PATH_MAX];
+    dprintf(client_fd,"cwd: %s\n", getcwd(cwd, PATH_MAX));
+
+    // NOTA: realpath restituisce NULL se il percorso non esiste.
+    if (realpath(path_arg, resolved_path) == NULL) {
+        // Errore: la cartella non esiste o permessi negati nella risoluzione
+        char msg[PATH_MAX + 3000];
+        snprintf(msg, sizeof(msg), "Error: Cannot resolve path '%s': %s\n", path_arg, strerror(errno));
+        write(client_fd, msg, strlen(msg));
+        return;
+    }
+    dprintf(client_fd, "Path reale: %s\n", resolved_path);
+    // 5. Spostamento del processo con chdir()
+    // Siccome siamo in chroot, non possiamo "uscire" dalla root. 
+    // Se resolved_path è valido, possiamo andarci.
+    if (chdir(resolved_path) == 0) {
+        
+        // SUCCESS: Aggiorniamo la sessione
+        strncpy(s->current_dir, resolved_path, PATH_MAX - 1);
+        s->current_dir[PATH_MAX - 1] = '\0';
+
+        // Feedback lato server
+        printf("User %s moved to (chroot): %s\n", s->username, s->current_dir);
+
+        // Feedback al client
+        char msg[PATH_MAX + 50];
+        snprintf(msg, sizeof(msg), "Directory changed to: %s\n", s->current_dir);
+        write(client_fd, msg, strlen(msg));
+
+    } else {
+        // FAIL: chdir fallita (es. permessi di esecuzione mancanti sulla cartella finale)
+        char msg[PATH_MAX + 64];
+        snprintf(msg, sizeof(msg), "Error changing directory to '%s': %s\n", resolved_path, strerror(errno));
         write(client_fd, msg, strlen(msg));
     }
 }
@@ -468,71 +527,7 @@ int normalize_path_list(char *path, Session *s, int client_fd) {
 
 
 
-/* void list(int client_fd, char *buffer, Session *s){
-     if (!(s->logged_in)) {
-            char msg[] = "Cannot move files while you are guest\n";
-            write(client_fd, msg, strlen(msg));
-            return;
-        }
- 
-        char path[64];  
-        memset(path, 0, sizeof(path));
 
-        if (sscanf(buffer + 5, "%63s", path) != 1 ) {
-                char msg[] = COLOR_YELLOW"Use: list <path>\n"COLOR_RESET;
-                write(client_fd, msg, strlen(msg));
-                //return;
-        }else {
-        // Se l'utente ha scritto solo "list", usiamo la directory corrente
-        if(strlen(path)==0)
-        strcpy(path, ".");
-        }
-        
-        dprintf(client_fd,"path passato: %s\n", path);
-        char full_path[PATH_MAX + 1000];
-        
-        check_full_path(client_fd, path, s, full_path);//Function that checks whether the passed path is relative or absolute and also checks the length
-        if(normalize_path_list(full_path, s,client_fd)==-1){return;}
-        dprintf(client_fd, "Path uscito da funzioni check e norm: %s\n", full_path);
-       
-
-        // 4. Apertura della directory
-    DIR *d = opendir(full_path);
-    if (!d) {
-        // Se non riesce ad aprire (es. permessi o non è una directory)
-        char msg[] = COLOR_RED "Error: Cannot open directory (check permissions or path)\n" COLOR_RESET;
-        write(client_fd, msg, strlen(msg));
-        return;
-    }
-
-    // 5. Lettura e Stampa
-    struct dirent *dir;
-    struct stat file_stat;
-    char output_buffer[1024];     // Buffer per il messaggio da inviare
-    char filepath_for_stat[PATH_MAX + 3000]; // Buffer per il path completo necessario a stat()
-    char perm_str[12];
-    // Intestazione tabella
-    snprintf(output_buffer, sizeof(output_buffer), "%-12s %-30s %-15s\n", "PERMISSIONS", "NAME", "TOTAL SIZE");
-    write(client_fd, output_buffer, strlen(output_buffer));
-    write(client_fd, "----------------------------------------------\n", 47);
-
-    while ((dir = readdir(d)) != NULL) {
-        // Per ottenere la dimensione, stat() ha bisogno del PERCORSO COMPLETO,
-        // non solo del nome del file. Concateniamo: full_path + "/" + nome_file
-        snprintf(filepath_for_stat, sizeof(filepath_for_stat), "%s/%s", full_path, dir->d_name);
-
-        if (stat(filepath_for_stat, &file_stat) == 0) {
-            get_perm_string(file_stat.st_mode, perm_str);
-            // Formattazione: Nome a sinistra (30 char), Dimensione a destra
-            snprintf(output_buffer, sizeof(output_buffer), "%-12s %-30s %ld bytes\n", 
-                    perm_str, dir->d_name, file_stat.st_size);
-            
-            write(client_fd, output_buffer, strlen(output_buffer));
-        }
-    }
-
-    closedir(d);
-} */
 
 void list(int client_fd, char *buffer, Session *s) {
     if (!(s->logged_in)) {

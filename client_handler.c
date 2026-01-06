@@ -19,8 +19,9 @@ void send_prompt(int client_fd, Session *s) {
     
     if (s->logged_in) {
         // Formato: username@shell:/path/corrente$ 
+        char cwd[PATH_MAX];
         snprintf(prompt, sizeof(prompt), "\033[1;32m%s@shell\033[0m:\033[1;34m%s\033[0m$ ", 
-                 s->username, s->current_dir);
+                 s->username, /* s->current_dir */ getcwd(cwd, PATH_MAX));
     } else {
         // Formato: guest:/path/corrente>
         snprintf(prompt, sizeof(prompt), "guest:%s> ", s->current_dir);
@@ -52,7 +53,9 @@ void handle_client(int client_fd, const char *root_dir) {
         //buffer[strcspn(buffer, "\n\r")] = 0;
 
          if (strlen(buffer) == 0) {
-            //dprintf(client_fd,"Void space: '%s'\n", buffer);
+            dprintf(client_fd,"Void space: '%s'\n", buffer);
+            char b[PATH_MAX];
+            dprintf(client_fd, "Adesso sei in: %s\n",getcwd(b,PATH_MAX));
             continue; 
         } 
 
@@ -107,7 +110,7 @@ void handle_client(int client_fd, const char *root_dir) {
         
         // unknown command
         char msg[] = "Unknown command \n";
-        //write(client_fd, msg, strlen(msg));
+        write(client_fd, msg, strlen(msg));
         
         //dprintf(client_fd,"The input was buffer = '%s'\n", buffer);
         /* char terminator = '\0'; 
