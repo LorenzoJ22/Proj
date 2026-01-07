@@ -32,6 +32,7 @@ void login( char *buffer, int client_fd, Session *s){
                 snprintf(curr, PATH_MAX, "/%s", s->username);
                 chdir(curr);
                 dprintf(client_fd,"Cur dopo ch login: %s\n", getcwd(cwd, PATH_MAX));
+                
                 //send_prompt(client_fd, s);
             } 
             else
@@ -63,7 +64,7 @@ void create_user(int client_fd, char *buffer, Session *s){
                 write(client_fd, msg, strlen(msg));
                 return;
             }
-
+            
             mode_t perms = strtol(perm_str, NULL, 8); // convert permissions string to mode_t
 
             if(ensure_user_exists(username)){
@@ -88,6 +89,51 @@ void create_user(int client_fd, char *buffer, Session *s){
             write(client_fd, msg, strlen(msg));
             return;
 }
+
+
+
+
+//two function not necessary not inserted in .h
+int check_abs_rel_path(char *raw_path, int client_fd){
+     if (raw_path[0] == '/') {
+        // È già assoluto (es. /dai/cartella/file)
+        if (strlen(raw_path) >= PATH_MAX) {
+            char msg[] = "Error: Path too long\n";
+            write(client_fd, msg, strlen(msg));
+            return -1;
+        }
+        return 1;
+    } else {
+        // È relativo
+            return -1;
+        }
+    }
+
+
+char* get_last(char *path, int client_fd){
+    //reach the last name of the path
+     char *filename = strrchr(path, '/'); 
+
+            if (filename == NULL) {
+                // Case 1: No slash found (ex. "punto", ".", "..")
+                // The filename is the entire path
+                filename = path;
+            } else {
+                // Case 2: Slash found (es. "dir/file", "./file", "dir/.")
+                // The filename is the string after the last slash
+                filename++; 
+            }
+            dprintf(client_fd,"Ecco %s\n", filename);
+            return filename;
+}
+
+
+
+
+
+
+
+
 
 void create(int client_fd, char *buffer, Session *s){
             
@@ -116,57 +162,70 @@ void create(int client_fd, char *buffer, Session *s){
                 write(client_fd, msg, strlen(msg));
                 return;
             }
-            //check if the basename of the path is dot or double dot
-            char *filename = strrchr(path, '/'); 
 
-            if (filename == NULL) {
-                // Case 1: No slash found (ex. "punto", ".", "..")
-                // The filename is the entire path
-                filename = path;
-            } else {
-                // Case 2: Slash found (es. "dir/file", "./file", "dir/.")
-                // The filename is the string after the last slash
-                filename++; 
-            }
+            mode_t perms = strtol(perm_str, NULL, 8); // convert permissions string to mode_t
+            char full_path[PATH_MAX + 1000];
+            /*^ we have increase this parameter to not have warnings^*/
+            
+            char parent_dir[PATH_MAX];
+            char filename_part[64];
+            char resolved_parent[PATH_MAX];
         
-            // check if the name of the file is prohibited
-            if (strcmp(filename, ".") == 0 || strcmp(filename, "..") == 0) {
-                char msg[] = COLOR_RED"Error: Cannot name a file or directory '.' or '..'\n"COLOR_RESET;
-                write(client_fd, msg, strlen(msg));
+            // 2. SEPARAZIONE PADRE / FIGLIO
+            // Cerchiamo l'ultimo slash per dividere la cartella dal file che vogliamo creare
+            char *last_slash = strrchr(path, '/');
+    
+        if (last_slash != NULL) {
+            // Calcoliamo lunghezza della parte directory
+            size_t parent_len = last_slash - path;
+            
+            // Caso speciale: se il file è  direttamente sotto root "/" (es. "/file.txt")
+            if (parent_len == 0) {
+                strcpy(parent_dir, "/");
+            } else {
+                strncpy(parent_dir, path, parent_len);
+                parent_dir[parent_len] = '\0';
+            } 
+            
+            // Copiamo il nome del file (tutto ciò che c'è dopo lo slash)
+            strcpy(filename_part, last_slash + 1);
+
+        } else {
+            // Caso teorico (improbabile se gestiamo bene i path sopra):
+            // Se non ci sono slash, significa che è nella directory corrente
+            char b[PATH_MAX];
+            strcpy(parent_dir, getcwd(b,PATH_MAX));
+            strcpy(filename_part, path);
+        }
+
+         if (strlen(filename_part) == 0) {
+            char msg[] = COLOR_RED "Error: Invalid file name (trailing slash?)\n" COLOR_RESET;
+            write(client_fd, msg, strlen(msg));
+            return;
+            }
+            if (strcmp(filename_part, ".") == 0 || strcmp(filename_part, "..") == 0) {
+            char msg[] = COLOR_RED"Error: Cannot name a file or directory '.' or '..'\n"COLOR_RESET;
+            write(client_fd, msg, strlen(msg));
+            return;
+            }
+
+            dprintf(client_fd,"parent_dir: %s \n",parent_dir);
+
+            if (realpath(parent_dir, resolved_parent) == NULL) {
+                dprintf(client_fd, "Error: Destination directory not found or access denied (%s)\n", strerror(errno));
                 return;
             }
 
-            //check if we are triyng to create file in root directory although we already check this in normalize_path
-            size_t dir_len;
-            if (filename != path) { 
-                //there's a slash in path
-                
-                // Let's calculate the length of the parent directory.
-                // (filename - 1) is the position of the slash.
-                // Subtracting 'path' gives us the length of the string before the slash.
-                dir_len = (filename - 1) - path;
+            //check for home violation creation
+            if(check_home_violation(resolved_parent, client_fd, s)==-1) return;
 
-                // Strict check:
-                // 1. The length of the folder in the path must be equal to the length of the root name.
-                // 2. The characters must match exactly.
-                if (dir_len == strlen(s->root_dir) && 
-                    strncmp(path, s->root_dir, dir_len) == 0) {
-                    
-                    char msg[] = COLOR_RED "Permission denied. Cannot create files directly in root.\n"COLOR_RESET;
-                    write(client_fd, msg, strlen(msg));
-                    return;
-                }
-            }
+            // Mettiamo insieme la cartella padre pulita + / + il nome file
+            snprintf(full_path, PATH_MAX+1000, "%s/%s", resolved_parent, filename_part);
 
-            mode_t perms = strtol(perm_str, NULL, 8); // convert permissions string to mode_t
-            char full_path[PATH_MAX + 1000];//il full_path inizializzato con 4096 ha la stessa misura del current_dir quindi nel peggiore dei casi con snprintf la tronca uscendo dalla stringa
-            /*^ we have increase this parameter to not have warnings^*/
-
-            check_full_path(client_fd, path, s, full_path);
-            if(normalize_path(full_path, s,client_fd)==-1){return;}
+            dprintf(client_fd, "Debug: Creating at %s\n", full_path);
 
             if(is_dir){
-                sys_make_directory(full_path, perms, GROUP_NAME,s->username);  
+                sys_make_directory_creat(full_path, perms);  
                 char msg[] = COLOR_GREEN "Directory created successfully\n" COLOR_RESET;
                 write(client_fd, msg, strlen(msg));
                 return;
@@ -174,7 +233,7 @@ void create(int client_fd, char *buffer, Session *s){
             else{                
                 printf("Full path: %s\n", full_path);
                 
-            int result = sys_make_file(full_path, perms, GROUP_NAME, s->username);  
+            int result = sys_make_file(full_path, perms);  
                 printf("errno number: %d\n", EEXIST);
                 if(result == -EEXIST){
                     char msg[] = COLOR_YELLOW "File already created\n" COLOR_RESET;
@@ -190,124 +249,11 @@ void create(int client_fd, char *buffer, Session *s){
                     return;
                 }
             }
-
 }
 
 
-/* void cd(int client_fd, char *buffer, Session *s){
-
-    if (!(s->logged_in)) {
-        char msg[] = "Cannot create file while you are guest\n";
-        write(client_fd, msg, strlen(msg));
-        return;
-    }
-
-    // 1. Parsing of the command line
-    char *command;
-    char *path;
-    //char target_resolved[PATH_MAX+2000];
-
-    command = strtok(buffer, " \t\n");
-    path = strtok(NULL, " \t\n");
-    dprintf(client_fd, "Your command is: %s\n", command);
-    //check if the command is correct, although we already check before in the client_handler.c ...
-    if(strncmp(command, "cd", 2)!=0){
-        dprintf(client_fd, "Wrong command!\n");
-        return;
-    }
-    //the case where the user pass nothing to cd
-    dprintf(client_fd, "Your path passed is: %s\n", path);
-    dprintf(client_fd, "Your home directory in general is: %s\n", s->home_dir);
-    dprintf(client_fd, "Your current directory is: %s\n", s->current_dir);
-    //aggiungere opzione se relativo
-    if(path==NULL){
-        path = s->home_dir;
-        if (path == NULL) {
-            dprintf(client_fd, "Error:  There's no 'home' defined.\n");
-            return;
-        }
-    }
-   
-    //realpath(path, target_resolved) == NULL //problema dei permessi se non ha +w e x non funziona e da sempre null
-    dprintf(client_fd, "So the path that we are passing now in function is: %s\n", path);
-    char full_path[PATH_MAX + 1000];
-    check_full_path(client_fd,path,s,full_path);
-    change_dir(full_path,client_fd, s);
-} */
 
 
-/* void change_directory(int client_fd, char *buffer, Session *s) {
-    
-    if (!(s->logged_in)) {
-            char msg[] = "Cannot create file while you are guest\n";
-            write(client_fd, msg, strlen(msg));
-            return;
-        }
-    
-
-   
-    char *command;
-    char *path;
-
-    command = strtok(buffer, " \t\n");
-    path = strtok(NULL, " \t\n");
-    //dprintf(client_fd, "Your command is: %s\n", command);
-    //check if the command is correct, although we already check before in the client_handler.c ...
-    if(strncmp(command, "cd", 2)!=0){
-        dprintf(client_fd, "Wrong command!\n");
-        return;
-    }
-    
-    
-
-    //the case where the user pass nothing to cd
-    if(path==NULL){
-        path= s->home_dir;
-        if (path == NULL) {
-            dprintf(client_fd, "Error:  There's no 'home' defined.\n");
-            return;
-        }
-    }
-    
-    char full_path[PATH_MAX *2]; 
-    
-
-    check_full_path(client_fd,path,s,full_path);
-    if(normalize_path(full_path, s,client_fd)==-1){return;}
-
-    if (strncmp(full_path, s->root_dir, strlen(s->root_dir)) != 0) {
-        char msg[] = "Error: Cannot go outside root directory\n";
-        write(client_fd, msg, strlen(msg));
-        //actually we already check this in the funcion "normalize_path"
-        return;
-    }
-
-    //check if the directory where we want to move exist or not and if the current user have the permission to access them
-    struct stat sb;
-    
-    if (stat(full_path, &sb) == 0 && S_ISDIR(sb.st_mode)  && access(full_path, X_OK) == 0) {
-        
-        // SUCCESS: directory exist.
-        // Update the session with the user
-        strncpy(s->current_dir, full_path, PATH_MAX - 1);
-        s->current_dir[PATH_MAX - 1] = '\0'; 
-
-        printf("User changed dir to: %s\n", s->current_dir);
-        //usare chdir per spostare l'intero processo
-        //chdir(full_path);//da rivedere!! Prima va messo il chroot 
-        char msg[PATH_MAX + 50];
-        snprintf(msg, sizeof(msg), "Directory changed to: %s\n", s->current_dir);
-        write(client_fd, msg, strlen(msg));
-
-    } else {
-        dprintf(client_fd,"access: %d ", access(full_path, X_OK));
-        dprintf(client_fd,"S_ISDIR: %d ", S_ISDIR(sb.st_mode));
-        dprintf(client_fd,"stat: %d ", stat(full_path, &sb) == 0);
-        // FAIL: directory does not exist or is not a directory
-        char msg[] = "Error: Directory does not exist or you don't have permission\n";
-        write(client_fd, msg, strlen(msg));
-    }
-} */
 
 void change_directory(int client_fd, char *buffer, Session *s) {
     
@@ -326,27 +272,28 @@ void change_directory(int client_fd, char *buffer, Session *s) {
         dprintf(client_fd, "Wrong command!\n");
         return;
     }
-
     // 3. Gestione del caso "cd" senza argomenti -> vai alla Home
-    // NOTA: In ambiente chroot, la home è spesso "/" o "/home" relativo alla gabbia.
+    // NOTA: In ambiente chroot, la home è"/home"
     if (path_arg == NULL) {
         // Se s->home_dir è un path assoluto del sistema reale (es /srv/ftp),
-        // dentro il chroot potrebbe non avere senso. 
-        // Assumiamo che dentro il chroot la home sia la radice "/" o che s->home_dir sia già adattato.
-        //char full[PATH_MAX];
-        //snprintf(full, PATH_MAX, "%s/%s", "/",s->username);
-        //path_arg = full;  PER ADESSO COMMENTO, MA DA FINIRE!
+        // Assumiamo che dentro il chroot la home sia la radice "/home" o che s->home_dir sia già adattato.
+        char *full = calloc(1, PATH_MAX);
+    
+        if (full == NULL) {
+        perror("Errore allocazione memoria per path");
+        exit(1);
+        }
+        snprintf(full, PATH_MAX, "%s/%s", "/",s->username);
+        path_arg = full; 
             
     }
-
+    
     // 4. Risoluzione del percorso con realpath()
-    // realpath prende il path relativo (es. ".." o "foto") e lo risolve 
-    // basandosi sulla directory corrente del processo (già chrootato).
     char resolved_path[PATH_MAX];
+
     char cwd[PATH_MAX];
     dprintf(client_fd,"cwd: %s\n", getcwd(cwd, PATH_MAX));
-
-    // NOTA: realpath restituisce NULL se il percorso non esiste.
+    
     if (realpath(path_arg, resolved_path) == NULL) {
         // Errore: la cartella non esiste o permessi negati nella risoluzione
         char msg[PATH_MAX + 3000];
@@ -355,19 +302,18 @@ void change_directory(int client_fd, char *buffer, Session *s) {
         return;
     }
     dprintf(client_fd, "Path reale: %s\n", resolved_path);
-    // 5. Spostamento del processo con chdir()
-    // Siccome siamo in chroot, non possiamo "uscire" dalla root. 
-    // Se resolved_path è valido, possiamo andarci.
+    
+    if(check_home_violation(resolved_path, client_fd, s)==-1) return;
+    
+
     if (chdir(resolved_path) == 0) {
         
         // SUCCESS: Aggiorniamo la sessione
         strncpy(s->current_dir, resolved_path, PATH_MAX - 1);
         s->current_dir[PATH_MAX - 1] = '\0';
 
-        // Feedback lato server
+       
         printf("User %s moved to (chroot): %s\n", s->username, s->current_dir);
-
-        // Feedback al client
         char msg[PATH_MAX + 50];
         snprintf(msg, sizeof(msg), "Directory changed to: %s\n", s->current_dir);
         write(client_fd, msg, strlen(msg));
@@ -400,8 +346,16 @@ void chmods(int client_fd, char *buffer, Session *s){
         mode_t perms = strtol(perm_str, NULL, 8); // convert permissions string to mode_t
         
         char full_path[PATH_MAX + 1000];
-        check_full_path(client_fd, path, s, full_path);//Function that checks whether the passed path is relative or absolute and also checks the length
-        if(normalize_path(full_path, s,client_fd)==-1){return;}
+        if (realpath(path, full_path) == NULL) {
+        // Errore: la cartella non esiste o permessi negati nella risoluzione
+        char msg[PATH_MAX + 3000];
+        snprintf(msg, sizeof(msg), COLOR_RED"Error: Cannot resolve path '%s': %s\n"COLOR_RESET, path, strerror(errno));
+        write(client_fd, msg, strlen(msg));
+        return;
+        }
+        dprintf(client_fd, "Path reale: %s\n", full_path);
+    
+        if(check_home_violation(full_path, client_fd, s)==-1) return;
 
 //also in chmod the normal user cannot change permission of directories and files that are not his
 
@@ -436,6 +390,8 @@ void chmods(int client_fd, char *buffer, Session *s){
         dprintf(client_fd,COLOR_GREEN"Permission changed correctly\n"COLOR_RESET);
 }
 
+
+
 void move(int client_fd, char* buffer, Session *s){
         if (!(s->logged_in)) {
             char msg[] = "Cannot move files while you are guest\n";
@@ -443,88 +399,45 @@ void move(int client_fd, char* buffer, Session *s){
             return;
         }
 
-    char path_src[64];
-    char path_dest[64];  
+        char path_src[64];
+        char path_dest[64];  
 
         if (sscanf(buffer + 5, "%63s %63s", path_src, path_dest) != 2 ) {
-                char msg[] = "Use: move <path1> <path2>\n";
+                char msg[] = COLOR_YELLOW"Use: move <path1> <path2>\n"COLOR_RESET;
                 write(client_fd, msg, strlen(msg));
                 return;
         }
+
         dprintf(client_fd,"Il path_src: %s\n", path_src);
         dprintf(client_fd,"Il path_dest: %s\n", path_dest);
-    char full_path_src[PATH_MAX+1000];
-    char full_path_dest[PATH_MAX+1000];
+
+        char full_path_src[PATH_MAX+1000];
+        char full_path_dest[PATH_MAX+1000];
         //now we have to normalize the two path passed and chek also if they are absolute or relative
-        check_full_path(client_fd, path_src, s, full_path_src);
-        check_full_path(client_fd, path_dest, s, full_path_dest);
-        if(normalize_path(full_path_src,s, client_fd)==-1){return;}
-        if(normalize_path(full_path_dest,s,client_fd)==-1){return;}
+
+        if (realpath(path_src, full_path_src) == NULL) {
+        // Errore: la cartella non esiste o permessi negati nella risoluzione
+            dprintf(client_fd, COLOR_RED"Error: Cannot resolve path '%s': %s\n"COLOR_RESET, path_dest, strerror(errno));
+            return;
+        }
+
+        if(realpath(path_dest, full_path_dest) == NULL){
+            dprintf(client_fd, COLOR_RED"Error: Cannot resolve path '%s': %s\n"COLOR_RESET, path_dest, strerror(errno));
+            return;
+        }
+
+        dprintf(client_fd, "Path reale_src: %s\n", full_path_src);
+        dprintf(client_fd, "Path reale_dest: %s\n", full_path_dest);
+    
+        if(check_home_violation(full_path_src, client_fd, s)==-1) return;
+        if(check_home_violation(full_path_dest, client_fd, s)==-1) return;
+
         dprintf(client_fd,"Il full_path_src: %s\n", full_path_src);
         dprintf(client_fd,"Il full_path_dest: %s\n", full_path_dest);
         //now we can move the file in the directory of the second path
         move_file(client_fd, full_path_src, full_path_dest);
 
 }
-
-
-
-int normalize_path_list(char *path, Session *s, int client_fd) {
-    char *stack[100]; // Stack per le parti del percorso
-    int top = -1;
-    char temp[4096];
-    printf("Start nomalizing path\n");
-    // Copiamo il path per usare strtok senza distruggere l'originale subito
-    strncpy(temp, path, 4096);
-    int locked_index=0;
-    char *token = strtok(temp, "/");
-    
-    while (token != NULL) {
-        if (strcmp(token, ".") == 0) {
-            // Ignora il "." (resta dove sei)
-        } 
-        else if (strcmp(token, "..") == 0) {
-            // Se c'è qualcosa nello stack, torna indietro
-            if (top >= locked_index) {
-                // OPTIONAL: If we want to deniyng delete "root",
-                // check: if stack[top] is "root", do not decrease.
-                if (strcmp(stack[top], s->username) != 0) {
-                     top--; 
-                }else {
-                    dprintf(client_fd, COLOR_RED"Error you are triyng to access area above user\n"COLOR_RESET);
-                    return-1;}
-            }
-        } 
-
-        else if (strlen(token) > 0) { // Avoid void string (caso //)
-            // Add directory to the stack
-            printf(" stack[%d] = %s\n",top, stack[top]);
-            top++;
-            stack[top] = token;
-            
-        }
-
-        token = strtok(NULL, "/");
-    }
-    if (top >= 0 && strcmp(stack[0], s->root_dir) != 0) stack[0] = s->root_dir;
-    //if (top >= 1 && strcmp(stack[1], s->username) != 0) stack[1] = s->username;
-    // Rebuild the clean path
-    path[0] = '\0'; // Clear the destination string
-    
-    for (int i = 0; i <= top; i++) {
-        if (i > 0) strcat(path, "/"); // Add slash between the words (but not at beginnig if path does not begin with /)
-        strcat(path, stack[i]);
-    }
-
-    printf("Finish to normalize the path\n");
-    
-    if (strlen(path) == 0) {
-        strcpy(path, s->root_dir);
-    }
-    return 0;
-}
-
-
 
 
 
@@ -548,10 +461,11 @@ void list(int client_fd, char *buffer, Session *s) {
 
     char full_path[PATH_MAX + 1000];
     
-    check_full_path(client_fd, path, s, full_path); 
-    if (normalize_path_list(full_path, s, client_fd) == -1) {
+    if (realpath(path, full_path)==NULL) {
+        dprintf(client_fd, "Error: Path error\n");
         return;
     }
+    //if(check_home_violation(full_path,client_fd, s)==-1)return;
 
     //dprintf(client_fd, "Path assoluto risolto: %s\n", full_path);
 
@@ -583,8 +497,7 @@ void list(int client_fd, char *buffer, Session *s) {
     char perm_str[12];                       
 
     // Scriviamo l'intestazione nel buffer accumulatore
-    snprintf(line_buffer, sizeof(line_buffer), 
-        "%-12s %-30s %-15s\n", "PERMISSIONS", "NAME", "TOTAL SIZE");
+    snprintf(line_buffer, sizeof(line_buffer), "%-12s %-30s %-15s\n", "PERMISSIONS", "NAME", "TOTAL SIZE");
     strcat(response_buffer, line_buffer);
     strcat(response_buffer, "------------------------------------------------------------\n");
 

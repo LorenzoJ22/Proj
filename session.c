@@ -45,13 +45,12 @@ int session_login(Session *s, const char *username) {
     uid_t user_uid = user->pw_uid;
     gid_t user_gid = user->pw_gid;
     
-   
+   // trap the process in the root/jail
     char full_path[PATH_MAX+3000];
     char b[PATH_MAX];
     if (getcwd(b, PATH_MAX) != NULL) {
     snprintf(full_path, PATH_MAX+3000, "%s/%s", b, s->root_dir);
     }else {
-    // Gestione errore getcwd
     perror("getcwd error");
     }
     printf("path corrente %s\n", b);
