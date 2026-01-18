@@ -17,4 +17,5 @@ void move_file(int client_fd, const char *source_path, const char *dest_dir);
 void get_perm_string(mode_t mode, char *str);
 long long get_directory_content_size(const char *path);
 void sys_make_directory_creat(const char *path, mode_t mode);
+char *get_last(char *path, int client_fd);
 #endif

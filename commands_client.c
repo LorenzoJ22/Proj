@@ -93,7 +93,7 @@ void create_user(int client_fd, char *buffer, Session *s){
 
 
 
-//two function not necessary not inserted in .h
+//function not necessary not inserted in .h
 int check_abs_rel_path(char *raw_path, int client_fd){
      if (raw_path[0] == '/') {
         // È già assoluto (es. /dai/cartella/file)
@@ -110,22 +110,6 @@ int check_abs_rel_path(char *raw_path, int client_fd){
     }
 
 
-char* get_last(char *path, int client_fd){
-    //reach the last name of the path
-     char *filename = strrchr(path, '/'); 
-
-            if (filename == NULL) {
-                // Case 1: No slash found (ex. "punto", ".", "..")
-                // The filename is the entire path
-                filename = path;
-            } else {
-                // Case 2: Slash found (es. "dir/file", "./file", "dir/.")
-                // The filename is the string after the last slash
-                filename++; 
-            }
-            dprintf(client_fd,"Ecco %s\n", filename);
-            return filename;
-}
 
 
 
@@ -544,3 +528,42 @@ void list(int client_fd, char *buffer, Session *s) {
 }
 
 
+
+
+void delete(int client_fd, char* buffer, Session *s){
+    if (!(s->logged_in)) {
+        char msg[] = "Cannot list files while you are guest\n";
+        write(client_fd, msg, strlen(msg));
+        return;
+    }
+
+    char path[64];
+    memset(path, 0, sizeof(path)); 
+
+    // 1. Logica di parsing
+    if (sscanf(buffer + 7, "%63s", path) != 1) {
+        dprintf(client_fd,"Usage: delete <path>\n");
+        return;
+    }
+    
+    dprintf(client_fd, "Path richiesto: %s\n", path);
+
+    char full_path[PATH_MAX + 1000];
+
+
+    if (realpath(path, full_path)==NULL) {
+        dprintf(client_fd, "Error: Path error\n");
+        return;
+    }
+    if(check_home_violation(full_path,client_fd, s)==-1)return;
+
+    // Restituisce 0 in caso di successo, -1 in caso di errore
+    if (unlink(full_path) == 0) {
+        printf("File eliminato con successo.\n");
+        dprintf(client_fd, COLOR_GREEN"File deleted correctly: %s\n"COLOR_RESET, get_last(path, client_fd));
+
+    } else {
+        perror("Errore durante l'eliminazione");
+        dprintf(client_fd, COLOR_RED"Error with elimination of: %s\n"COLOR_RESET, get_last(path, client_fd));
+    }
+}

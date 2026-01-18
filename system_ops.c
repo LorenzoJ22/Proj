@@ -303,3 +303,22 @@ int check_home_violation(char* resolved_path, int client_fd, Session *s){
     }
     return 0;
 }
+
+
+//function that reaches the final filename in the path and return the name 
+char* get_last(char *path, int client_fd){
+    //reach the last name of the path
+     char *filename = strrchr(path, '/'); 
+
+            if (filename == NULL) {
+                // Case 1: No slash found (ex. "punto", ".", "..")
+                // The filename is the entire path
+                filename = path;
+            } else {
+                // Case 2: Slash found (es. "dir/file", "./file", "dir/.")
+                // The filename is the string after the last slash
+                filename++; 
+            }
+            dprintf(client_fd,"Ecco %s\n", filename);
+            return filename;
+}
