@@ -46,6 +46,7 @@ int sys_create_user(const char *username) {
 
 void sys_make_directory(const char *path, mode_t mode, const char *groupname, const char *username) {
 
+
     struct group *grp = getgrnam(groupname);
     struct passwd *pwd = getpwnam(username);
     if (grp == NULL || pwd == NULL) {
@@ -76,17 +77,24 @@ void sys_make_directory(const char *path, mode_t mode, const char *groupname, co
 
     
 }
+//redundand because is for command create without checking the passwd e group
+void sys_make_directory_creat(const char *path, mode_t mode) {
 
-int sys_make_file(const char *path, mode_t mode, const char *groupname, const char *username) {
+    struct stat st;
+    if (stat(path, &st) == -1) {
+        umask(002); // clear umask to set exact permissions
+        printf("Creating directory at %s\n", path);
+        if (mkdir(path, mode) < 0) {
+            perror("Failed to create directory");
+            exit(1);
+        }
+    }else{
+        printf("Directory already created\n");}
+        umask(022);
+    
+}
 
-    struct group *grp = getgrnam(groupname);
-    struct passwd *pwd = getpwnam(username);
-    if (grp == NULL || pwd == NULL) {
-        perror(COLOR_RED "Error:"  COLOR_RESET"Group or user not found");
-        exit(1);
-    }
-
-    gid_t new_gid = grp->gr_gid;
+int sys_make_file(const char *path, mode_t mode) {
 
     //struct stat st;
     //if (stat(path, &st) == -1) { //it is not necessary until we handle this case in the errno of the open function
@@ -111,40 +119,12 @@ int sys_make_file(const char *path, mode_t mode, const char *groupname, const ch
         printf(COLOR_GREEN"File created with permission \n."COLOR_RESET);
     //}
 
-    //printf("File is already created\n");
 
-    if (chown(path, pwd->pw_uid, new_gid) == -1) {
-        perror("Error changing group ownership");
-        exit(1);
-    }
-
-    umask(022); // reset umask
+        umask(022); // reset umask
 
     return 0;
 }
 
-//for now is not available this function
-/* void change_dir(const char *path, int client_fd, Session *s){
-
-    char msg[PATH_MAX + 100];
-
-    if(chdir(path)!=0){
-        //it failed, we have to report the error
-        printf("Command cd failed at %s\n", path);
-        snprintf(msg, sizeof(msg), "cd failed: %s\n", strerror(errno));
-        write(client_fd, msg, strlen(msg));
-    }else{
-        //Directory updated correctly
-        //update the session current_dir
-       if (getcwd(s->current_dir, sizeof(s->current_dir)) != NULL) {
-            printf("Directory changed at: %s\n", s->current_dir);
-            dprintf(client_fd, "Your directory has changed: %s\n", s->current_dir);
-        } else {
-            printf("Error cwd not found at %s\n", path);
-            dprintf(client_fd, "Critic error: impossible to get CWD .\n");
-        }
-    }
-} */
 
 
 int create_group(const char *groupname) {
@@ -169,102 +149,6 @@ int create_group(const char *groupname) {
     waitpid(pid, NULL, 0);
     return 1;
 }
-
-
- void check_full_path(int client_fd, char *path, Session *s, char *full_path){
-
-        int is_absolute = 0;
-            if (strncmp(path,s->root_dir, strlen(s->root_dir)) == 0) {
-                if ( path[strlen(s->root_dir)] == '/') {
-                is_absolute = 1;
-               }
-            }
-               
-        size_t needed_len = strlen(s->current_dir) + strlen(path) + 2; 
-               
-        //char full_path[PATH_MAX + 1000];//il full_path inizializzato con 4096 ha la stessa misura del current_dir quindi nel peggiore dei casi con snprintf la tronca uscendo dalla stringa
-               /*^ we have increase this parameter to not have warnings^*/
-               if (is_absolute) {
-                   //CASE ABSOLUTE: path already begin with "root/..."
-                   if (strlen(path) >= PATH_MAX) {
-                       char msg[] = "Error: Path too long\n";
-                       write(client_fd, msg, strlen(msg));
-                       //memset(buffer, 0, sizeof(&buffer));
-                       return;
-                   }
-                   strncpy(full_path, path, PATH_MAX - 1);
-               } else {
-                //CASE RELATIVE: left the path without change
-
-            if (needed_len > PATH_MAX) {//check if he is arrive to the max 
-                char msg[] = "Error: Path too long\n";
-                write(client_fd, msg, strlen(msg));
-                return;
-            }
-            snprintf(full_path, PATH_MAX +1000, "%s/%s", s->current_dir, path);
-            
-        }
-        return;
-}
-
-
-int normalize_path(char *path, Session *s, int client_fd) {
-    char *stack[100]; // Stack per le parti del percorso
-    int top = -1;
-    char temp[4096];
-    printf("Start nomalizing path\n");
-    // Copiamo il path per usare strtok senza distruggere l'originale subito
-    strncpy(temp, path, 4096);
-    int locked_index=1;
-    char *token = strtok(temp, "/");
-    
-    while (token != NULL) {
-        if (strcmp(token, ".") == 0) {
-            // Ignora il "." (resta dove sei)
-        } 
-        else if (strcmp(token, "..") == 0) {
-            // Se c'è qualcosa nello stack, torna indietro
-            if (top >= locked_index) {
-                // OPTIONAL: If we want to deniyng delete "root",
-                // check: if stack[top] is "root", do not decrease.
-                if (strcmp(stack[top], s->username) != 0) {
-                     top--; 
-                }else {
-                    dprintf(client_fd, COLOR_RED"Error you are triyng to access area above user\n"COLOR_RESET);
-                    return-1;}
-            }
-        } 
-
-        else if (strlen(token) > 0) { // Avoid void string (caso //)
-            // Add directory to the stack
-            printf(" stack[%d] = %s\n",top, stack[top]);
-            top++;
-            stack[top] = token;
-            
-        }
-
-        token = strtok(NULL, "/");
-    }
-    if (top >= 0 && strcmp(stack[0], s->root_dir) != 0) stack[0] = s->root_dir;
-    if (top >= 1 && strcmp(stack[1], s->username) != 0) stack[1] = s->username;
-    // Rebuild the clean path
-    path[0] = '\0'; // Clear the destination string
-    
-    for (int i = 0; i <= top; i++) {
-        if (i > 0) strcat(path, "/"); // Add slash between the words (but not at beginnig if path does not begin with /)
-        strcat(path, stack[i]);
-    }
-
-    printf("Finish to normalize the path\n");
-    
-    if (strlen(path) == 0) {
-        strcpy(path, s->root_dir);
-    }
-    return 0;
-}
-
-
-
 
 
 void move_file(int client_fd, const char *source_path, const char *dest_dir) {
@@ -398,3 +282,43 @@ long long get_directory_content_size(const char *path) {
 
     return 0; // Accesso negato
 } */
+
+
+
+//function that check if user put in input an absolute path, that try to go above his home directory 
+int check_home_violation(char* resolved_path, int client_fd, Session *s){
+    char allowed_root[PATH_MAX];
+    snprintf(allowed_root, PATH_MAX, "/%s", s->username);
+
+    size_t root_len = strlen(allowed_root);
+
+    if (strncmp(resolved_path, allowed_root, strlen(allowed_root)) != 0) {
+        char msg[] = "\033[1;31mError: Access denied (Outside home directory)\033[0m\n"; 
+        write(client_fd, msg, strlen(msg));
+        return -1;
+    }
+    if (resolved_path[root_len] != '\0' && resolved_path[root_len] != '/') {
+        dprintf(client_fd, COLOR_RED"Error: Access denied. Target is not inside your home.\n"COLOR_RESET);
+        return -1;
+    }
+    return 0;
+}
+
+
+//function that reaches the final filename in the path and return the name 
+char* get_last(char *path, int client_fd){
+    //reach the last name of the path
+     char *filename = strrchr(path, '/'); 
+
+            if (filename == NULL) {
+                // Case 1: No slash found (ex. "punto", ".", "..")
+                // The filename is the entire path
+                filename = path;
+            } else {
+                // Case 2: Slash found (es. "dir/file", "./file", "dir/.")
+                // The filename is the string after the last slash
+                filename++; 
+            }
+            dprintf(client_fd,"Ecco %s\n", filename);
+            return filename;
+}

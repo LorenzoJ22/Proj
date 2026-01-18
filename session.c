@@ -7,6 +7,7 @@
 #include <limits.h>
 #include <sys/wait.h>
 #include <pwd.h>
+#include <errno.h>
 
 #include "system_ops.h"
 #include "session.h"
@@ -43,6 +44,26 @@ int session_login(Session *s, const char *username) {
 
     uid_t user_uid = user->pw_uid;
     gid_t user_gid = user->pw_gid;
+    
+   // trap the process in the root/jail
+    char full_path[PATH_MAX+3000];
+    char b[PATH_MAX];
+    if (getcwd(b, PATH_MAX) != NULL) {
+    snprintf(full_path, PATH_MAX+3000, "%s/%s", b, s->root_dir);
+    }else {
+    perror("getcwd error");
+    }
+    printf("path corrente %s\n", b);
+    printf("full_path %s\n", full_path);
+    
+    if(chdir(full_path)== -1){
+        printf("error: %s\n", strerror(errno));
+    }
+    if(chroot(full_path)== -1){
+    printf("error chroot: %s\n", strerror(errno));
+    }
+    
+
 
     drop_to_real_user(user_uid, user_gid); // ensure we are not root before switching
 
