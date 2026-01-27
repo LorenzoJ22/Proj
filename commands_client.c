@@ -567,3 +567,56 @@ void delete(int client_fd, char* buffer, Session *s){
         dprintf(client_fd, COLOR_RED"Error with elimination of: %s\n"COLOR_RESET, get_last(path, client_fd));
     }
 }
+
+
+void upload (int client_fd, char* command_args, Session *s){
+
+    if (!(s->logged_in)) {
+        char msg[] = "Cannot upload files while you are guest\n";
+        write(client_fd, msg, strlen(msg));
+        return;
+    }
+
+    char filepath[256];
+    long filesize;
+    
+    // 1. Parsing degli argomenti
+    if (sscanf(command_args, "upload %255s %ld", filepath, &filesize) != 2) {
+        char *msg = "ERROR: Invalid format. Use: upload <filename> <size>\n";
+        send(client_fd, msg, strlen(msg), 0);
+        return;
+    }
+
+    printf("Incoming file: %s (%ld bytes)\n", filepath, filesize);
+
+    // 2. Apre il file in scrittura BINARIA ("wb")
+    FILE *fp = fopen(filepath, "wb");
+    if (fp == NULL) {
+        perror("File creation failed");
+        char *msg = "ERROR: Cannot create file on server.\n";
+        send(client_fd, msg, strlen(msg), 0);
+        return;
+    }
+
+    char *ack = "READY";
+    send(client_fd, ack, strlen(ack), 0);
+
+    char buffer[BUFFER_SIZE];
+    long total_received = 0;
+    int bytes_received;
+
+    // 3. Riceve i dati in un loop fino a completare il file
+    while (total_received < filesize) {
+        bytes_received = recv(client_fd, buffer, sizeof(buffer), 0);
+        if (bytes_received <= 0) {
+            perror("Receive error");
+            break;
+        }
+
+        fwrite(buffer, 1, bytes_received, fp);
+        total_received += bytes_received;
+    }
+
+    fclose(fp);
+    printf("File received successfully: %s\n", filepath);
+}

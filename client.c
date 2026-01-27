@@ -39,7 +39,51 @@ int main(int argc, char *argv[]){
         buffer[strcspn(buffer, "\n")] = 0; //remove newline character
         //^i try to move the remover of \n beacuse he shift the output..
         
-        
+        if (strncmp(buffer, "upload", 6) == 0) {
+
+            int background_mode = 0;
+            char *local_path = NULL;
+            char *remote_path = NULL;
+
+            char *token = strtok(buffer, " \n"); // first token is "upload"
+
+            token = strtok(NULL, " \n"); // second token is the local path
+
+            if (token == NULL) {
+                printf("Uso: upload [-b] <local_path> <server_path>\n");
+                continue;
+            }
+
+            if (strcmp(token, "-b") == 0) {
+                // Trovata opzione background!
+                background_mode = 1;
+                
+                // Il prossimo token deve essere il local_path
+                local_path = strtok(NULL, " \n");
+            } else {
+                // Non c'è -b, quindi questo token è già il local_path
+                local_path = token;
+            }
+
+
+            if (local_path != NULL) {
+                remote_path = strtok(NULL, " \n");
+            }
+
+
+            if (local_path == NULL || remote_path == NULL) {
+                printf("Error: Missing arguments.\n");
+                printf("Usage: upload [-b] <local_path> <server_path>\n");
+                continue;
+            }
+
+            printf("[DEBUG] Local: %s | Remote: %s | Bg: %d\n", local_path, remote_path, background_mode);
+            
+            upload_file(sockfd, local_path, remote_path, background_mode);
+
+            continue;
+
+        }
         
         send_message(sockfd, buffer);
         

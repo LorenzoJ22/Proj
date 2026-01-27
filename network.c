@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include "values.h"
 
 
 
@@ -102,4 +103,53 @@ int send_message(int sockfd, const char *msg) {
 
 int receive_message(int sockfd, char *buffer, int size) {
     return read(sockfd, buffer, size);
+}
+
+void upload_file (int sockfd, const char *local_path, const char *remote_path, int background_mode){
+
+    if (background_mode) {
+        printf("Uploading file in background mode...\n");
+        // Implement background upload logic if needed
+    }
+
+    FILE *fp = fopen(local_path, "rb");
+    if (fp == NULL ) {
+        perror("File open error");
+        return;
+    }
+
+    fseek (fp, 0, SEEK_END);
+    long filesize = ftell (fp);
+    fseek (fp, 0, SEEK_SET);
+
+    char command[BUFFER_SIZE];
+    snprintf(command, sizeof(command), "upload %s %ld", remote_path, filesize);
+
+    send_message(sockfd, command);
+
+    char server_reply[BUFFER_SIZE] = {0};
+    receive_message (sockfd, server_reply, sizeof(server_reply));
+
+    if (strncmp(server_reply, "READY", 5) != 0) {
+
+        fprintf(stderr, "Server denied upload: %s\n", server_reply);
+        fclose(fp);
+        return;
+    }
+
+    printf("Server is ready. Sending %ld bytes...\n", filesize);
+
+    char buffer[BUFFER_SIZE];
+    size_t bytes_sent = 0;
+
+    while (bytes_sent < filesize) {
+        size_t to_send = fread(buffer, 1, sizeof(buffer), fp);
+        if (to_send > 0) {
+            send_message(sockfd, buffer);
+            bytes_sent += to_send;
+        }
+    }
+
+    printf("File upload completed.\n");
+    fclose(fp);
 }
