@@ -147,9 +147,23 @@ void upload_file (int sockfd, const char *local_path, const char *remote_path, i
         if (to_send > 0) {
             send_message(sockfd, buffer);
             bytes_sent += to_send;
+            printf("\r[Client] Inviati: %ld byte...", bytes_sent);
         }
     }
 
-    printf("File upload completed.\n");
-    fclose(fp);
+    printf("File inviato. Attendo conferma dal server...\n");
+
+char ack[64] = {0};
+// Questa recv blocca il client finché il server non ha finito VERAMENTE di leggere
+if (recv(sockfd, ack, sizeof(ack), 0) <= 0) {
+    perror("Errore ricezione conferma");
+} else {
+    if (strncmp(ack, "SUCCESS", 7) == 0) {
+        printf("Server ha confermato: File salvato correttamente.\n");
+    } else {
+        printf("Errore dal server: %s\n", ack);
+    }
+}
+
+fclose(fp);
 }

@@ -607,7 +607,11 @@ void upload (int client_fd, char* command_args, Session *s){
 
     // 3. Riceve i dati in un loop fino a completare il file
     while (total_received < filesize) {
-        bytes_received = recv(client_fd, buffer, sizeof(buffer), 0);
+
+        long bytes_left = filesize - total_received;
+        int bytes_to_read = (bytes_left < sizeof(buffer)) ? bytes_left : sizeof(buffer);
+
+        bytes_received = recv(client_fd, buffer, bytes_to_read, 0);
         if (bytes_received <= 0) {
             perror("Receive error");
             break;
@@ -615,8 +619,15 @@ void upload (int client_fd, char* command_args, Session *s){
 
         fwrite(buffer, 1, bytes_received, fp);
         total_received += bytes_received;
+        printf("\r[Server] Ricevuti: %ld / %ld", total_received, filesize);
     }
-
+    fflush(fp);
     fclose(fp);
+
+
+    char *msg = "SUCCESS";
+    send(client_fd, msg, strlen(msg), 0);
+    printf("Upload completato. Inviato ACK.\n");
+    
     printf("File received successfully: %s\n", filepath);
 }
