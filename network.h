@@ -13,6 +13,6 @@ int send_message(int sockfd, const char *message);
 
 int receive_message(int sockfd, char *buffer, int size);
 
-void upload_file(int sockfd, const char *local_path, const char *remote_path, int background_mode);
+void upload_file(int sockfd, const char *local_path, const char *remote_path, int background_mode, char *server_ip, int server_port, char *username);
 
 #endif

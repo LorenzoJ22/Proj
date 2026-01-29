@@ -8,11 +8,15 @@
 #include "values.h"
 #include "network.h"
 #include <sys/select.h>
+#include <signal.h>
 
 
 
 int main(int argc, char *argv[]){
 
+    signal(SIGCHLD, SIG_IGN);
+
+    char current_username[64] = {0}; 
     fd_set readfds;
     char buffer[BUFFER_SIZE];  
 
@@ -76,6 +80,10 @@ int main(int argc, char *argv[]){
                 break;
             }
 
+            if (strncmp(buffer, "login", 5) == 0) {
+                sscanf(buffer + 6, "%s", current_username); 
+            }
+
 
             if (strncmp(buffer, "upload", 6) == 0) {
 
@@ -117,7 +125,7 @@ int main(int argc, char *argv[]){
 
             printf("[DEBUG] Local: %s | Remote: %s | Bg: %d\n", local_path, remote_path, background_mode);
             
-            upload_file(sockfd, local_path, remote_path, background_mode);
+            upload_file(sockfd, local_path, remote_path, background_mode, ip, port, current_username);
 
             send_message(sockfd, "");
             continue;
