@@ -166,6 +166,8 @@ int perform_upload_logic(int sockfd, const char *local_path, const char *remote_
 
 void upload_file (int sockfd, const char *local_path, const char *remote_path, int background_mode, char *server_ip, int server_port, char *username) {
 
+    
+
     if (background_mode) {
         printf("Uploading file in background mode...\n");
         
@@ -227,7 +229,7 @@ void upload_file (int sockfd, const char *local_path, const char *remote_path, i
             }
 
             
-
+            
             close(bg_sockfd);
             exit(0);
 
@@ -235,4 +237,5 @@ void upload_file (int sockfd, const char *local_path, const char *remote_path, i
     }
 
     perform_upload_logic(sockfd, local_path, remote_path);
+    
 }

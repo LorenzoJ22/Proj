@@ -127,7 +127,7 @@ int main(int argc, char *argv[]){
             
             upload_file(sockfd, local_path, remote_path, background_mode, ip, port, current_username);
 
-            send_message(sockfd, "");
+            //send_message(sockfd, "");
             continue;
 
         }

@@ -3,6 +3,7 @@
 #include "system_ops.h"
 #include "values.h"
 #include "permissions.h"
+#include "network.h"
 
 #include <errno.h>
 #include <unistd.h>
@@ -14,6 +15,8 @@
 #include <pwd.h>
 #include <limits.h>
 #include <dirent.h>
+#include <sys/socket.h>
+
 
 void login( char *buffer, int client_fd, Session *s){
     
@@ -583,7 +586,14 @@ void upload (int client_fd, char* command_args, Session *s){
     // 1. Parsing degli argomenti
     if (sscanf(command_args, "upload %255s %ld", filepath, &filesize) != 2) {
         char *msg = "ERROR: Invalid format. Use: upload <filename> <size>\n";
-        send(client_fd, msg, strlen(msg), 0);
+        send_message(client_fd, msg);
+        //send(client_fd, msg, strlen(msg), 0);
+        return;
+    }
+
+    char final_safe_path[PATH_MAX];
+
+    if (resolve_safe_create_path(filepath, client_fd, s, final_safe_path) == -1) {
         return;
     }
 
@@ -599,7 +609,8 @@ void upload (int client_fd, char* command_args, Session *s){
     }
 
     char *ack = "READY";
-    send(client_fd, ack, strlen(ack), 0);
+    send_message(client_fd, ack);
+    //send(client_fd, ack, strlen(ack), 0);
 
     char buffer[BUFFER_SIZE];
     long total_received = 0;
@@ -609,7 +620,7 @@ void upload (int client_fd, char* command_args, Session *s){
     while (total_received < filesize) {
 
         long bytes_left = filesize - total_received;
-        int bytes_to_read = (bytes_left < sizeof(buffer)) ? bytes_left : sizeof(buffer);
+        int bytes_to_read = (bytes_left < (long)sizeof(buffer)) ? bytes_left : (long)sizeof(buffer);
 
         bytes_received = recv(client_fd, buffer, bytes_to_read, 0);
         if (bytes_received <= 0) {
@@ -619,7 +630,7 @@ void upload (int client_fd, char* command_args, Session *s){
 
         fwrite(buffer, 1, bytes_received, fp);
         total_received += bytes_received;
-        printf("\r[Server] Ricevuti: %ld / %ld", total_received, filesize);
+        printf("\r[Server] Ricevuti: %ld / %ld \n", total_received, filesize);
     }
     fflush(fp);
     fclose(fp);
