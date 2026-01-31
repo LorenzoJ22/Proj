@@ -132,6 +132,48 @@ int main(int argc, char *argv[]){
 
         }
 
+            if (strncmp(buffer, "download", 8) == 0) {
+
+                int background_mode = 0;
+                char *remote_path = NULL;
+                char *local_path = NULL;
+
+                char *token = strtok(buffer, " \n"); // first token is "download"
+
+                token = strtok(NULL, " \n"); // second token is the remote path
+
+                if (token == NULL) {
+                    printf("Uso: download [-b] <server_path> <local_path>\n");
+                    continue;
+                }
+
+                if (strcmp(token, "-b") == 0) {
+                    // Trovata opzione background!
+                    background_mode = 1;
+                    
+                    // Il prossimo token deve essere il remote_path
+                    remote_path = strtok(NULL, " \n");
+                } else {
+                    // Non c'è -b, quindi questo token è già il remote_path
+                    remote_path = token;
+                }
+
+                if (remote_path != NULL) {
+                    local_path = strtok(NULL, " \n");
+                }
+
+
+                if (local_path == NULL || remote_path == NULL) {
+                    printf("Error: Missing arguments.\n");
+                    printf("Usage: download [-b] <server_path> <local_path>\n");
+                    continue;
+                }
+
+                printf("[DEBUG] Remote: %s | Local: %s | Bg: %d\n", remote_path, local_path, background_mode);
+
+                download_file(sockfd, remote_path, local_path, background_mode, ip, port, current_username);
+            }
+
             send_message(sockfd, buffer);
         }
 

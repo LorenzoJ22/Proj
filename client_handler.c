@@ -109,6 +109,11 @@ void handle_client(int client_fd, const char *root_dir) {
             continue;
         }
 
+        if (strncmp(buffer, "download ", 9) == 0) {
+            download(client_fd, buffer, &s);
+            continue;
+        }
+
 
         //if not logged in, only allow login command
         if (!s.logged_in) {

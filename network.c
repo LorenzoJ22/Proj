@@ -239,3 +239,62 @@ void upload_file (int sockfd, const char *local_path, const char *remote_path, i
     perform_upload_logic(sockfd, local_path, remote_path);
     
 }
+
+
+void perform_download_logic(int sockfd, const char *remote_path, const char *local_path){
+
+    char command[BUFFER_SIZE];
+    snprintf(command, sizeof(command), "download %s", remote_path);
+
+    send_message(sockfd, command);
+
+    char server_reply[BUFFER_SIZE] = {0};
+    receive_message (sockfd, server_reply, sizeof(server_reply));
+
+    if (strncmp(server_reply, "SIZE ", 5) != 0) {
+
+        fprintf(stderr, "Server denied download: %s\n", server_reply);
+        return;
+    }
+
+    long filesize = atol(server_reply + 5);
+    printf("[INFO] File size: %ld bytes. Starting download...\n", filesize);
+
+    send_message(sockfd, "READY");
+
+    FILE *fp = fopen(local_path, "wb");
+
+    if (fp == NULL ) {
+        perror("File creation error");
+        return;
+    }
+
+    char total_received = 0;
+    char buffer[BUFFER_SIZE];
+
+    while (total_received < filesize) {
+        int bytes_to_read = ((filesize - total_received) < BUFFER_SIZE) ? (filesize - total_received) : BUFFER_SIZE;
+        int bytes_received = receive_message(sockfd, buffer, bytes_to_read);
+        if (bytes_received <= 0) {
+            perror("Receive error");
+            break;
+        }
+
+        fwrite(buffer, 1, bytes_received, fp);
+        total_received += bytes_received;
+        
+    }
+    
+    fflush(fp);
+    fclose(fp);
+    printf(COLOR_GREEN"File downloaded successfully: %s\n"COLOR_RESET, local_path);
+}
+
+void download_file(int sockfd, const char *remote_path, const char *local_path, int background_mode, char *server_ip, int server_port, char *username) {
+
+    if (background_mode) {
+        // Background mode
+    }
+
+    perform_download_logic(sockfd, remote_path, local_path);
+}

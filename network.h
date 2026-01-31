@@ -15,4 +15,6 @@ int receive_message(int sockfd, char *buffer, int size);
 
 void upload_file(int sockfd, const char *local_path, const char *remote_path, int background_mode, char *server_ip, int server_port, char *username);
 
+void download_file(int sockfd, const char *remote_path, const char *local_path, int background_mode, char *server_ip, int server_port, char *username);
+
 #endif

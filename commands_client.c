@@ -642,3 +642,72 @@ void upload (int client_fd, char* command_args, Session *s){
     
     printf("File received successfully: %s\n", filepath);
 }
+
+void download(int client_fd, char* command_args, Session *s){
+
+    if (!(s->logged_in)) {
+        char msg[] = "Cannot download files while you are guest\n";
+        write(client_fd, msg, strlen(msg));
+        return;
+    }
+
+    char filepath[256];
+    
+    // Parsing of arguments
+    if (sscanf(command_args, "download %255s", filepath) != 1) {
+        char *msg = "ERROR: Invalid format. Use: download <server path> <client path>\n";
+        send_message(client_fd, msg);
+        return;
+    }
+
+    char final_safe_path[PATH_MAX];
+    if (resolve_safe_create_path(filepath, client_fd, s, final_safe_path) == -1) {
+        return;
+    }
+
+    FILE *fp = fopen(filepath, "rb");
+    if (fp == NULL) {
+        perror("File open failed");
+        char *msg = "ERROR: Cannot open file on server.\n";
+        send_message(client_fd, msg);
+        return;
+    }
+
+    fseek(fp, 0, SEEK_END);
+    long filesize = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    char size_msg[64];
+    snprintf(size_msg, sizeof(size_msg), "SIZE %ld", filesize);
+    send_message(client_fd, size_msg);
+
+    char ack_buffer[16];
+    if((recv(client_fd, ack_buffer, sizeof(ack_buffer),0) <= 0) || strncmp(ack_buffer, "READY", 5) != 0) {
+        fclose(fp);
+        return;
+    }
+
+    char data_buffer[BUFFER_SIZE];
+    size_t bytes_read;
+    long total_sent = 0;
+
+    
+    while (total_sent < filesize) {
+        bytes_read = fread(data_buffer, 1, sizeof(data_buffer), fp);
+        if (bytes_read <= 0) {
+            perror("File read failed");
+            break;
+        }
+
+        ssize_t bytes_sent = send(client_fd, data_buffer, bytes_read, 0);
+        if (bytes_sent <= 0) {
+            perror("Send failed");
+            break;
+        }
+
+        total_sent += bytes_sent;
+        printf("\r[Server] Inviati: %ld / %ld \n", total_sent, filesize);
+    }
+
+    fclose(fp);
+}
