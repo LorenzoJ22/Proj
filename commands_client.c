@@ -682,10 +682,15 @@ void download(int client_fd, char* command_args, Session *s){
     send_message(client_fd, size_msg);
 
     char ack_buffer[16];
-    if((recv(client_fd, ack_buffer, sizeof(ack_buffer),0) <= 0) || strncmp(ack_buffer, "READY", 5) != 0) {
+    receive_message(client_fd, ack_buffer, sizeof(ack_buffer));
+
+    if (strncmp(ack_buffer, "READY", 5) != 0) {
+        printf("Client denied download: %s\n", ack_buffer);
         fclose(fp);
         return;
     }
+
+    printf("%s", ack_buffer);
 
     char data_buffer[BUFFER_SIZE];
     size_t bytes_read;
@@ -707,6 +712,14 @@ void download(int client_fd, char* command_args, Session *s){
 
         total_sent += bytes_sent;
         printf("\r[Server] Inviati: %ld / %ld \n", total_sent, filesize);
+    }
+
+    char ack[16];
+    receive_message(client_fd, ack, sizeof(ack));
+    if (strncmp(ack, "SUCCESS", 7) == 0) {
+        printf("Download completato con successo.\n");
+    } else {
+        printf("Download fallito o interrotto: %s\n", ack);
     }
 
     fclose(fp);

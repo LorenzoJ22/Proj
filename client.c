@@ -172,6 +172,7 @@ int main(int argc, char *argv[]){
                 printf("[DEBUG] Remote: %s | Local: %s | Bg: %d\n", remote_path, local_path, background_mode);
 
                 download_file(sockfd, remote_path, local_path, background_mode, ip, port, current_username);
+                continue;
             }
 
             send_message(sockfd, buffer);
