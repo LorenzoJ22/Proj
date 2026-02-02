@@ -369,6 +369,7 @@ void download_file(int sockfd, const char *remote_path, const char *local_path, 
 
             int result = perform_download_logic(bg_sockfd, remote_path, local_path);
 
+            
             if (result == 0) {
                 printf(COLOR_GREEN"[Background] Command: download %s %s concluded\n"COLOR_RESET, remote_path, local_path);
             } else {
@@ -376,7 +377,7 @@ void download_file(int sockfd, const char *remote_path, const char *local_path, 
             }
 
             
-            
+             
             close(bg_sockfd);
             exit(0);
         }

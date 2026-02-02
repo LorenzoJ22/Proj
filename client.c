@@ -9,6 +9,36 @@
 #include "network.h"
 #include <sys/select.h>
 #include <signal.h>
+#include <sys/wait.h>
+#include <errno.h>
+
+
+
+
+int can_exit() {
+    int status;
+    pid_t pid;
+
+    // 1. PULIZIA (The Reaper): Raccogliamo tutti i processi che sono GIÀ finiti.
+    // Se non lo facciamo, un processo finito ma non "raccolto" (zombie) 
+    // sembrerebbe ancora esistente e bloccherebbe l'exit.
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+        printf("\n[BG] Nota: Il processo background %d è terminato proprio ora.\n", pid);
+    }
+
+    // 2. CONTROLLO VIVI
+    // Chiamiamo waitpid ancora una volta.
+    // Se restituisce 0: Significa "Esistono figli, ma sono ancora vivi e vegeti".
+    // Se restituisce -1: Significa "Non ho più figli (ECHILD)".
+    
+    if (waitpid(-1, NULL, WNOHANG) == 0) {
+        // Return 0: C'è ancora qualcuno vivo!
+        return 0; // FALSE: Non puoi uscire
+    }
+    
+    // Return -1: Nessun figlio rimasto.
+    return 1; // TRUE: Puoi uscire
+}
 
 
 
@@ -77,7 +107,16 @@ int main(int argc, char *argv[]){
             if (strlen(buffer) == 0) continue;
 
             if (strcmp(buffer, "exit") == 0) {
-                break;
+                if (can_exit()) {
+                    printf("Exit in progress. Goodbye!\n");
+                    close(sockfd);
+                    exit(0);
+                } else {
+                    // C'è roba in background -> Blocchiamo l'uscita
+                    printf(COLOR_RED "Error: There are background operations (upload/download) still active.\n" COLOR_RESET);
+                    printf("Please wait for their completion before exiting.\n");
+                    continue;
+                }
             }
 
             if (strncmp(buffer, "login", 5) == 0) {
