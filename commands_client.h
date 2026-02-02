@@ -12,4 +12,6 @@ void change_directory(int client_fd, char *buffer, Session *s);
 void chmods(int client_fd, char *buffer, Session *s);
 void move(int client_fd, char *buffer, Session *s);
 void list(int client_fd, char *buffer, Session *s);
+void delete(int client_fd, char* buffer, Session *s);
+void write_client(int client_fd, char* buffer, Session *s);
 #endif

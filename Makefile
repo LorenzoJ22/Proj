@@ -17,7 +17,7 @@ SERVER_SRCS = server.c client_handler.c session.c system_ops.c permissions.c com
 
 # File specifici del CLIENT
 # client.c: il main e l'interfaccia utente del client
-CLIENT_SRCS = client.c
+CLIENT_SRCS = client.c send_clients_data.c
 
 # --- 3. CREAZIONE LISTA OGGETTI (.o) ---
 COMMON_OBJS = $(COMMON_SRCS:.c=.o)

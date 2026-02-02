@@ -3,6 +3,7 @@
 #include "system_ops.h"
 #include "values.h"
 #include "permissions.h"
+#include "network.h"
 
 #include <errno.h>
 #include <unistd.h>
@@ -14,6 +15,10 @@
 #include <pwd.h>
 #include <limits.h>
 #include <dirent.h>
+#include <fcntl.h>
+#include <arpa/inet.h>
+
+#define CHUNK_SIZE 4096
 
 void login( char *buffer, int client_fd, Session *s){
     
@@ -437,8 +442,15 @@ void list(int client_fd, char *buffer, Session *s) {
     memset(path, 0, sizeof(path)); 
 
     // 1. Logica di parsing
+    int len1 = strlen(buffer);
+    if(len1 == 4) {
+        strcpy(path, "."); 
+    }else{
     if (sscanf(buffer + 5, "%63s", path) != 1) {
-        strcpy(path, ".");
+                char msg[] = COLOR_YELLOW"Use: list <path>\n"COLOR_RESET;
+                write(client_fd, msg, strlen(msg));
+                return;
+        }
     }
 
     //dprintf(client_fd, "Path richiesto: %s\n", path);
@@ -449,7 +461,7 @@ void list(int client_fd, char *buffer, Session *s) {
         dprintf(client_fd, "Error: Path error\n");
         return;
     }
-    //if(check_home_violation(full_path,client_fd, s)==-1)return;
+
 
     //dprintf(client_fd, "Path assoluto risolto: %s\n", full_path);
 
@@ -473,7 +485,7 @@ void list(int client_fd, char *buffer, Session *s) {
     }
     memset(response_buffer, 0, resp_size);
 
-    // 5. Preparazione Intestazione
+    
     struct dirent *dir;
     struct stat file_stat;
     char line_buffer[2048];                
@@ -566,4 +578,180 @@ void delete(int client_fd, char* buffer, Session *s){
         perror("Errore durante l'eliminazione");
         dprintf(client_fd, COLOR_RED"Error with elimination of: %s\n"COLOR_RESET, get_last(path, client_fd));
     }
+}
+
+
+
+
+void write_client(int client_fd, char* buffer, Session *s){
+     if (!(s->logged_in)) {
+        char msg[] = "Cannot list files while you are guest\n";
+        write(client_fd, msg, strlen(msg));
+        return;
+    }
+
+
+    int is_set = 0; 
+    char *args = buffer + 6;
+    int num;
+    int consumed=0;
+    
+    if (strncmp(args, "-offset ", 8) == 0) {
+        printf("Sto per aggiungere off..\n");
+        is_set = 1;      // We found the option!
+        args += 8;       // Shift the pointer of three positions (hop " ")
+        int i;
+        if( (i=sscanf(args, "%d%n", &num, &consumed))==1){//%*[^0-9]%d  ---> hop all the non integer input , %n per contare
+        args += consumed;
+        // Now args point to the beginnig of the path
+    }else{
+        printf("Salvataggio num fallita\n");
+    }
+    printf("args e': %s, cosumed invece:%d, i letti sono %d\n", args, consumed, i);
+    }
+
+    char path[64];
+    memset(path, 0, sizeof(path)); 
+
+    // 1. Logica di parsing, and we add to args the number length and a space..
+    if (sscanf(args, "%63s", path) != 1) {
+        dprintf(client_fd,"Usage: write <path>\n");
+        return;
+    }
+
+        char full_path[PATH_MAX + 1000];
+        char parent_dir[PATH_MAX];
+        char filename_part[64];
+        char resolved_parent[PATH_MAX];
+    
+        // 2. SEPARAZIONE PADRE / FIGLIO
+        // Cerchiamo l'ultimo slash per dividere la cartella dal file che vogliamo creare
+        char *last_slash = strrchr(path, '/');
+    
+        if (last_slash != NULL) {
+            // Calcoliamo lunghezza della parte directory
+            size_t parent_len = last_slash - path;
+            
+            // Caso speciale: se il file è  direttamente sotto root "/" (es. "/file.txt")
+            if (parent_len == 0) {
+                strcpy(parent_dir, "/");
+            } else {
+                strncpy(parent_dir, path, parent_len);
+                parent_dir[parent_len] = '\0';
+            } 
+            
+            // Copiamo il nome del file (tutto ciò che c'è dopo lo slash)
+            strcpy(filename_part, last_slash + 1);
+
+        } else {
+            // Caso teorico (improbabile se gestiamo bene i path sopra):
+            // Se non ci sono slash, significa che è nella directory corrente
+            char b[PATH_MAX];
+            strcpy(parent_dir, getcwd(b,PATH_MAX));
+            strcpy(filename_part, path);
+        }
+
+         if (strlen(filename_part) == 0) {
+             char msg[] = COLOR_RED "Error: Invalid file name (trailing slash?)\n" COLOR_RESET;
+             write(client_fd, msg, strlen(msg));
+             return;
+            }
+            if (strcmp(filename_part, ".") == 0 || strcmp(filename_part, "..") == 0) {
+                char msg[] = COLOR_RED"Error: Cannot name a file or directory '.' or '..'\n"COLOR_RESET;
+                write(client_fd, msg, strlen(msg));
+                return;
+            }
+            
+            
+            if (realpath(parent_dir, resolved_parent) == NULL) {
+                dprintf(client_fd, "Error: Destination directory not found or access denied (%s)\n", strerror(errno));
+                return;
+            }
+            
+            //check for home violation creation
+            if(check_home_violation(resolved_parent, client_fd, s)==-1) return;
+            int file_fd;
+            // Mettiamo insieme la cartella padre pulita + / + il nome file
+            snprintf(full_path, PATH_MAX+1000, "%s/%s", resolved_parent, filename_part);
+
+            if(is_set){
+                file_fd = open(full_path, O_CREAT | O_RDWR, S_IRWXU);
+            }else{
+                file_fd = open(full_path, O_CREAT | O_WRONLY | O_APPEND, S_IRWXU); //ci andrebbe append al posto di trunc
+            }
+
+            if (file_fd < 0) {
+                dprintf(client_fd, "Error creating file '%s': %s\n", full_path, strerror(errno));
+                return;
+            }
+
+            
+    //dprintf(client_fd, "Ready. Type content. Type 'END' on a new line to finish.\n");
+            
+    char line_buf[2048];
+            
+            
+    //With the offset, we have to insert the new strings without cancel the rest of file
+    struct stat st;
+    fstat(file_fd, &st);
+
+    off_t size = st.st_size;
+    off_t tail_size = size - num;
+    printf("File_size:%ld, Tail_size: %ld\n", size, tail_size);
+    char *tail = malloc(tail_size);
+    if(is_set){
+            lseek(file_fd, num, SEEK_SET);
+            while(read(file_fd, tail, tail_size)<0) break;
+            printf("tail: %s\n", tail);
+            lseek(file_fd, num, SEEK_SET);
+    }
+
+    // 4. Cycle to read 
+    // On the other side we use fgets in client
+    while (1) {
+        
+        // Legge una riga dal socket (gestisce blocchi e segnali)
+        ssize_t n = read(client_fd, line_buf, sizeof(line_buf));
+        printf("Letto n: %ld\n", n);
+        // Se n <= 0, c'è stato un errore o il client si è disconnesso
+        if (n <= 0) break;
+
+        // 5. Controllo "END"
+        // Controlliamo tutte le varianti di a capo
+        // char *terminator = strstr(line_buf, "END");
+        // if (terminator != NULL) {
+        //     break;
+        //     // printf("E' entrato qui? Allora ha preso end=%s\n", terminator);
+        //     // // Trovato! Calcoliamo quanti byte scrivere prima di :end
+        //     // int bytes_to_write = terminator - line_buf;
+        //     // printf("Quanti sono dalla sottrazione terminatore-linebuff?=%d\n", bytes_to_write);
+        //     // if (bytes_to_write > 0) {
+        //     //     printf("Scrivo qui?\n");
+        //     //     write(file_fd, line_buf, bytes_to_write);
+        //     //     break;
+        //     // }
+        // }
+        if (strcmp(line_buf, "END\n") == 0 || strcmp(line_buf, "END") == 0) {
+            printf("Transfer completed.\n");
+            dprintf(client_fd, COLOR_GREEN"File received and saved successfully.\n"COLOR_RESET);
+            break; // Esce dal ciclo while
+        }
+
+        //per inserire e non sovrascrivere quello che già c'è:
+        printf("Qua ci arriva a leggere\n");
+        if (write(file_fd, line_buf, n) < 0) {
+            dprintf(client_fd, "Error writing to file: %s\n", strerror(errno));
+            break;
+            }
+    }
+
+    if(is_set){
+    write(file_fd, tail, tail_size);
+    }
+    free(tail);
+
+    // Chiudiamo il file che abbiamo scritto
+    close(file_fd);
+
+
 }

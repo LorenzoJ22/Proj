@@ -5,8 +5,12 @@
 #include <arpa/inet.h>
 
 #include "network.h"
+#include "send_clients_data.h"
 
 #define BUFFER_SIZE 1024
+
+
+
 
 int main(int argc, char *argv[]){
 
@@ -43,6 +47,14 @@ int main(int argc, char *argv[]){
         
         send_message(sockfd, buffer);
         
+        
+        if (strncmp(buffer, "write ", 6) == 0) {
+        // Se sì, entro nella modalità "Invio File"
+        // NON devo tornare subito su all'inizio del while per fare receive_message!
+        client_write_data(sockfd); 
+    }
+
+
         if(strcmp(buffer, "exit") == 0){
             break;
         }
