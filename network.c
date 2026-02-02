@@ -269,33 +269,46 @@ int perform_download_logic(int sockfd, const char *remote_path, const char *loca
         return -1;
     }
 
-    char total_received = 0;
+    long total_received = 0;
     char buffer[BUFFER_SIZE];
     int bytes_received;
 
     while (total_received < filesize) {
         long bytes_left = filesize - total_received;
-        int bytes_to_read = (bytes_left < BUFFER_SIZE) ? bytes_left : BUFFER_SIZE;
+
+
+        int bytes_to_read = (bytes_left < (long)sizeof(buffer)) ? bytes_left : (long)sizeof(buffer);
 
         bytes_received = recv(sockfd, buffer, bytes_to_read, 0);
         if (bytes_received <= 0) {
-            perror("Receive error");
+            perror("Receive error"); 
             printf(COLOR_RED"\n[Client] Download interrupted.\n"COLOR_RESET);
             break;
         }
 
-        
-
         fwrite(buffer, 1, bytes_received, fp);
-        total_received += bytes_received;
-        printf("\r[Client] Ricevuti: %ld / %ld bytes...", total_received + bytes_received, filesize);
         
+        
+        total_received += bytes_received;
+        
+        
+        printf("\r[Client] Ricevuti: %ld / %ld bytes...", total_received, filesize);
+        
+        
+         
     }
 
-    send_message(sockfd, "SUCCESS");
-    
     fflush(fp);
     fclose(fp);
+
+    
+
+    char *msg = "SUCCESS";
+    send(sockfd, msg, strlen(msg), 0);
+
+    printf("\nDownload completed. Sending confirmation to server...\n");
+
+
     printf(COLOR_GREEN"File downloaded successfully: %s\n"COLOR_RESET, local_path);
     return 0;
 }
@@ -354,7 +367,7 @@ void download_file(int sockfd, const char *remote_path, const char *local_path, 
                 
             }
 
-            int result = perform_download_logic(bg_sockfd, local_path, remote_path);
+            int result = perform_download_logic(bg_sockfd, remote_path, local_path);
 
             if (result == 0) {
                 printf(COLOR_GREEN"[Background] Command: download %s %s concluded\n"COLOR_RESET, remote_path, local_path);

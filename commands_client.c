@@ -681,7 +681,7 @@ void download(int client_fd, char* command_args, Session *s){
     snprintf(size_msg, sizeof(size_msg), "SIZE %ld", filesize);
     send_message(client_fd, size_msg);
 
-    char ack_buffer[16];
+    char ack_buffer[16] = {0};
     receive_message(client_fd, ack_buffer, sizeof(ack_buffer));
 
     if (strncmp(ack_buffer, "READY", 5) != 0) {
@@ -690,37 +690,35 @@ void download(int client_fd, char* command_args, Session *s){
         return;
     }
 
-    printf("%s", ack_buffer);
+    
 
     char data_buffer[BUFFER_SIZE];
     size_t bytes_read;
-    long total_sent = 0;
+    size_t bytes_sent = 0;
 
     
-    while (total_sent < filesize) {
-        bytes_read = fread(data_buffer, 1, sizeof(data_buffer), fp);
-        if (bytes_read <= 0) {
-            perror("File read failed");
-            break;
-        }
-
-        ssize_t bytes_sent = send(client_fd, data_buffer, bytes_read, 0);
-        if (bytes_sent <= 0) {
-            perror("Send failed");
-            break;
-        }
-
-        total_sent += bytes_sent;
-        printf("\r[Server] Inviati: %ld / %ld \n", total_sent, filesize);
+    while (bytes_sent < (size_t)filesize) {
+        size_t to_send = fread(data_buffer, 1, sizeof(data_buffer), fp);
+            if (to_send > 0) {
+                send_message(client_fd, data_buffer);
+                bytes_sent += to_send;
+                printf("\r[Client] Inviati: %ld byte...", bytes_sent);
+            }
     }
-
-    char ack[16];
-    receive_message(client_fd, ack, sizeof(ack));
-    if (strncmp(ack, "SUCCESS", 7) == 0) {
-        printf("Download completato con successo.\n");
-    } else {
-        printf("Download fallito o interrotto: %s\n", ack);
-    }
-
+    
     fclose(fp);
+    printf("File inviato. Attendo conferma dal server...\n");
+
+
+    char ack[16]= {0};
+    if (recv(client_fd, ack, sizeof(ack), 0) <= 0) {
+        perror("Errore ricezione conferma");
+    } else {
+        if (strncmp(ack, "SUCCESS", 7) == 0) {
+            printf(COLOR_GREEN "File downloaded successfully." COLOR_RESET "\n");
+        } else {
+            printf("Errore dal server: %s\n", ack);
+        }
+    }
+    
 }
