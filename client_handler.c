@@ -23,8 +23,8 @@ void send_prompt(int client_fd, Session *s) {
         snprintf(prompt, sizeof(prompt), "\033[1;32m%s@shell\033[0m:\033[1;34m%s\033[0m$ ", 
                  s->username, /* s->current_dir */ getcwd(cwd, PATH_MAX));
     } else {
-        // Formato: guest:/path/corrente>
-        snprintf(prompt, sizeof(prompt), "guest:%s> ", s->current_dir);
+        // Formato: guest:/path/corrente$
+        snprintf(prompt, sizeof(prompt), "guest:%s$ ", s->current_dir);
     }
     
     write(client_fd, prompt, strlen(prompt));
@@ -101,6 +101,16 @@ void handle_client(int client_fd, const char *root_dir) {
 
         if(strncmp(buffer, "delete ", 7)==0){
             delete(client_fd, buffer, &s);
+            continue;
+        }
+
+        if (strncmp(buffer, "upload ", 7) == 0) {
+            upload(client_fd, buffer, &s);
+            continue;
+        }
+
+        if (strncmp(buffer, "download ", 9) == 0) {
+            download(client_fd, buffer, &s);
             continue;
         }
 

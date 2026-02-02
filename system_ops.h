@@ -18,4 +18,5 @@ void get_perm_string(mode_t mode, char *str);
 long long get_directory_content_size(const char *path);
 void sys_make_directory_creat(const char *path, mode_t mode);
 char *get_last(char *path, int client_fd);
+int resolve_safe_create_path(char *raw_input, int client_fd, Session *s, char *final_path_out);
 #endif

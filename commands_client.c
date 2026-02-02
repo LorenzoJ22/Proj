@@ -3,6 +3,7 @@
 #include "system_ops.h"
 #include "values.h"
 #include "permissions.h"
+#include "network.h"
 
 #include <errno.h>
 #include <unistd.h>
@@ -14,6 +15,8 @@
 #include <pwd.h>
 #include <limits.h>
 #include <dirent.h>
+#include <sys/socket.h>
+
 
 void login( char *buffer, int client_fd, Session *s){
     
@@ -566,4 +569,156 @@ void delete(int client_fd, char* buffer, Session *s){
         perror("Errore durante l'eliminazione");
         dprintf(client_fd, COLOR_RED"Error with elimination of: %s\n"COLOR_RESET, get_last(path, client_fd));
     }
+}
+
+
+void upload (int client_fd, char* command_args, Session *s){
+
+    if (!(s->logged_in)) {
+        char msg[] = "Cannot upload files while you are guest\n";
+        write(client_fd, msg, strlen(msg));
+        return;
+    }
+
+    char filepath[256];
+    long filesize;
+    
+    // 1. Parsing degli argomenti
+    if (sscanf(command_args, "upload %255s %ld", filepath, &filesize) != 2) {
+        char *msg = "ERROR: Invalid format. Use: upload <filename> <size>\n";
+        send_message(client_fd, msg);
+        //send(client_fd, msg, strlen(msg), 0);
+        return;
+    }
+
+    char final_safe_path[PATH_MAX];
+
+    if (resolve_safe_create_path(filepath, client_fd, s, final_safe_path) == -1) {
+        return;
+    }
+
+    printf("Incoming file: %s (%ld bytes)\n", filepath, filesize);
+
+    // 2. Apre il file in scrittura BINARIA ("wb")
+    FILE *fp = fopen(filepath, "wb");
+    if (fp == NULL) {
+        perror("File creation failed");
+        char *msg = "ERROR: Cannot create file on server.\n";
+        send(client_fd, msg, strlen(msg), 0);
+        return;
+    }
+
+    char *ack = "READY";
+    send_message(client_fd, ack);
+    //send(client_fd, ack, strlen(ack), 0);
+
+    char buffer[BUFFER_SIZE];
+    long total_received = 0;
+    int bytes_received;
+
+    // 3. Riceve i dati in un loop fino a completare il file
+    while (total_received < filesize) {
+
+        long bytes_left = filesize - total_received;
+        int bytes_to_read = (bytes_left < (long)sizeof(buffer)) ? bytes_left : (long)sizeof(buffer);
+
+        bytes_received = recv(client_fd, buffer, bytes_to_read, 0);
+        if (bytes_received <= 0) {
+            perror("Receive error");
+            break;
+        }
+
+        fwrite(buffer, 1, bytes_received, fp);
+        total_received += bytes_received;
+        printf("\r[Server] Ricevuti: %ld / %ld \n", total_received, filesize);
+    }
+    fflush(fp);
+    fclose(fp);
+
+
+    char *msg = "SUCCESS";
+    send(client_fd, msg, strlen(msg), 0);
+    printf("Upload completato. Inviato ACK.\n");
+    
+    printf("File received successfully: %s\n", filepath);
+}
+
+void download(int client_fd, char* command_args, Session *s){
+
+    if (!(s->logged_in)) {
+        char msg[] = "Cannot download files while you are guest\n";
+        write(client_fd, msg, strlen(msg));
+        return;
+    }
+
+    char filepath[256];
+    
+    // Parsing of arguments
+    if (sscanf(command_args, "download %255s", filepath) != 1) {
+        char *msg = "ERROR: Invalid format. Use: download <server path> <client path>\n";
+        send_message(client_fd, msg);
+        return;
+    }
+
+    char final_safe_path[PATH_MAX];
+    if (resolve_safe_create_path(filepath, client_fd, s, final_safe_path) == -1) {
+        return;
+    }
+
+    FILE *fp = fopen(filepath, "rb");
+    if (fp == NULL) {
+        perror("File open failed");
+        char *msg = "ERROR: Cannot open file on server.\n";
+        send_message(client_fd, msg);
+        return;
+    }
+
+    fseek(fp, 0, SEEK_END);
+    long filesize = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    char size_msg[64];
+    snprintf(size_msg, sizeof(size_msg), "SIZE %ld", filesize);
+    send_message(client_fd, size_msg);
+
+    char ack_buffer[16] = {0};
+    receive_message(client_fd, ack_buffer, sizeof(ack_buffer));
+
+    if (strncmp(ack_buffer, "READY", 5) != 0) {
+        printf("Client denied download: %s\n", ack_buffer);
+        fclose(fp);
+        return;
+    }
+
+    
+
+    char data_buffer[BUFFER_SIZE];
+    size_t bytes_read;
+    size_t bytes_sent = 0;
+
+    
+    while (bytes_sent < (size_t)filesize) {
+        size_t to_send = fread(data_buffer, 1, sizeof(data_buffer), fp);
+            if (to_send > 0) {
+                send_message(client_fd, data_buffer);
+                bytes_sent += to_send;
+                printf("\r[Client] Inviati: %ld byte...", bytes_sent);
+            }
+    }
+    
+    fclose(fp);
+    printf("File inviato. Attendo conferma dal server...\n");
+
+
+    char ack[16]= {0};
+    if (recv(client_fd, ack, sizeof(ack), 0) <= 0) {
+        perror("Errore ricezione conferma");
+    } else {
+        if (strncmp(ack, "SUCCESS", 7) == 0) {
+            printf(COLOR_GREEN "File downloaded successfully." COLOR_RESET "\n");
+        } else {
+            printf("Errore dal server: %s\n", ack);
+        }
+    }
+    
 }
