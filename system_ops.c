@@ -285,6 +285,9 @@ long long get_directory_content_size(const char *path) {
 
 
 
+
+
+
 //function that check if user put in input an absolute path, that try to go above his home directory 
 int check_home_violation(char* resolved_path, int client_fd, Session *s){
     char allowed_root[PATH_MAX];
@@ -303,6 +306,74 @@ int check_home_violation(char* resolved_path, int client_fd, Session *s){
     }
     return 0;
 }
+
+
+
+int resolve_safe_create_path(char *raw_input, int client_fd, Session *s, char *final_path_out) {
+    char parent_dir[PATH_MAX];
+    char filename_part[64];
+    char resolved_parent[PATH_MAX];
+
+    // --- LOGICA DEL COLLEGA (Inizio) ---
+    
+    // 1. Separazione Directory / File
+    char *last_slash = strrchr(raw_input, '/');
+
+    if (last_slash != NULL) {
+        size_t parent_len = last_slash - raw_input;
+        
+        if (parent_len == 0) {
+            strcpy(parent_dir, "/");
+        } else {
+            if (parent_len >= PATH_MAX) {
+                dprintf(client_fd, COLOR_RED "Error: Path too long.\n" COLOR_RESET);
+                return -1;
+            }
+            strncpy(parent_dir, raw_input, parent_len);
+            parent_dir[parent_len] = '\0';
+        }
+        // Copiamo il nome file
+        strcpy(filename_part, last_slash + 1);
+    } else {
+        // Nessuno slash: è nella directory corrente
+        strcpy(parent_dir, ".");
+        strcpy(filename_part, raw_input);
+    }
+
+    // 2. Controllo Nome File
+    if (strlen(filename_part) == 0) {
+        dprintf(client_fd, COLOR_RED "Error: Invalid file name (trailing slash?)\n" COLOR_RESET);
+        return -1;
+    }
+    if (strcmp(filename_part, ".") == 0 || strcmp(filename_part, "..") == 0) {
+        dprintf(client_fd, COLOR_RED "Error: Cannot name a file '.' or '..'\n" COLOR_RESET);
+        return -1;
+    }
+
+    // 3. Risoluzione Cartella Genitore (realpath)
+    if (realpath(parent_dir, resolved_parent) == NULL) {
+        dprintf(client_fd, COLOR_RED "Error: Destination directory not found (%s)\n" COLOR_RESET, strerror(errno));
+        return -1;
+    }
+
+    // 4. Controllo Violazione Home (Chiama la funzione del collega)
+    // Se la funzione del collega restituisce -1, ha già mandato lei il messaggio d'errore.
+    if (check_home_violation(resolved_parent, client_fd, s) == -1) {
+        return -1;
+    }
+
+    // --- LOGICA DEL COLLEGA (Fine) ---
+
+    // 5. Costruzione path finale (Se siamo qui, è tutto sicuro)
+    snprintf(final_path_out, PATH_MAX, "%s/%s", resolved_parent, filename_part);
+    
+    return 0; // Successo
+}
+
+
+
+
+
 
 
 //function that reaches the final filename in the path and return the name 

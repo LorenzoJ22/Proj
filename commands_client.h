@@ -15,4 +15,6 @@ void list(int client_fd, char *buffer, Session *s);
 void delete(int client_fd, char* buffer, Session *s);
 void write_client(int client_fd, char* buffer, Session *s);
 void read_client(int client_fd, char *buffer, Session *s);
+void upload(int client_fd, char *buffer, Session *s);
+void download(int client_fd, char *buffer, Session *s);
 #endif
