@@ -610,9 +610,17 @@ void write_client(int client_fd, char* buffer, Session *s){
         args += consumed;
         // Now args point to the beginnig of the path
     }else{
+        write(client_fd,"NO_OFF",6);
         printf("Fail to save num\n");
+        return;
     }
-        printf("args e': %s, cosumed:%d, char readed %d\n", args, consumed, i);
+        printf("args e': %s, cosumed:%d,scanf readed %d\n", args, consumed, i);
+    }else if(strncmp(args, "-offset", 7)==0){
+        write(client_fd,"US",2);
+        printf("Fail to save off\n");
+        return;
+    }else{
+        
     }
 
     char path[64];
@@ -620,7 +628,8 @@ void write_client(int client_fd, char* buffer, Session *s){
 
     // 1. Logica di parsing, and we add to args the number length and a space..
     if (sscanf(args, "%63s", path) != 1) {
-        dprintf(client_fd,"Usage: write <path>\n");
+        write(client_fd,"ERROR",5);
+        //dprintf(client_fd,"Usage: from server write -offset=<num> <path>\n");
         return;
     }
 
@@ -704,8 +713,11 @@ void write_client(int client_fd, char* buffer, Session *s){
 
     //check if the offset length is longer than the file size.
     if(size < num){
-        dprintf(client_fd,COLOR_RED"Error: offset length too long!\n"COLOR_RESET); 
+        write(client_fd, "OFF_ER",6);
+        //dprintf(client_fd,COLOR_RED"Error: offset length too long!\n"COLOR_RESET); 
         return;
+    }else{
+        write(client_fd, "OK", 2);
     }
 
     off_t tail_size = size - num;
@@ -838,6 +850,14 @@ void upload (int client_fd, char* command_args, Session *s){
     printf("File received successfully: %s\n", filepath);
 }
 
+
+
+
+
+
+
+
+
     void read_client(int client_fd, char *buffer, Session *s){
     if (!(s->logged_in)) {
         char msg[] = "Cannot list files while you are guest\n";
@@ -859,9 +879,17 @@ void upload (int client_fd, char* command_args, Session *s){
         args += consumed;
         // Now args point to the beginnig of the path
     }else{
+        write(client_fd,"NO_OFF",6);
         printf("Fail to save num\n");
+        return;
     }
         printf("args is: %s, cosumed instead:%d, readed %d\n", args, consumed, i);
+    }else if(strncmp(args, "-offset", 7)==0) {
+        write(client_fd,"US",2);
+        printf("Fail to save off\n");
+        return;
+    }else{
+        write(client_fd,"OK",2);
     }
 
     char path[64];
@@ -869,7 +897,7 @@ void upload (int client_fd, char* command_args, Session *s){
 
     // 1. Parsing logic, and we add to args the number length and a space..
     if (sscanf(args, "%63s", path) != 1) {
-        dprintf(client_fd,"Usage: read -offset=<num> <path>\n");
+        printf("Usage: read -offset=<num> <path>\n");
         return;
     }
 
@@ -884,7 +912,6 @@ void upload (int client_fd, char* command_args, Session *s){
     if(check_home_violation(full_path, client_fd, s)==-1) return;
 
     int file_fd;
-    
     file_fd = open(full_path, O_RDONLY);
     
 
@@ -902,14 +929,14 @@ void upload (int client_fd, char* command_args, Session *s){
     snprintf(line_control, sizeof(line_control), "The size of file is :%ld, instead the offset is:%d error offset too long!", size, num);
     //write(client_fd, line_control, sizeof(line_control));
     //check if the offset length is longer than the file size.
-    // if(size < num){
-    //     write(client_fd, "ERR_OFFSET", 10);
-    //     printf("Ho inviato errore offs, esco dalla funzione read_client e torno nel while principale\n");
-    //     //write(client_fd, line_control, sizeof(line_control));
-    //     //dprintf(client_fd,COLOR_RED"Error: offset length too long!\n"COLOR_RESET);
-    //     close(file_fd);  
-    //     return;
-    // }
+    if(size < num){
+        write(client_fd, "ERR_OFFSET", 10);
+        printf("Ho inviato errore offs, esco dalla funzione read_client e torno nel while principale\n");
+        //write(client_fd, line_control, sizeof(line_control));
+        //dprintf(client_fd,COLOR_RED"Error: offset length too long!\n"COLOR_RESET);
+        close(file_fd);  
+        return;
+    }
 
     if(is_set){
     lseek(file_fd, num, SEEK_SET);

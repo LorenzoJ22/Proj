@@ -7,14 +7,41 @@
 #include "network.h"
 #include "values.h"
 
-#define BUFFER_SIZE 2048
+#define SIZE 2048
 
 
-void client_write_data(int sockfd) {
+void client_write_data(int sockfd, char *buffer) {
+    sleep(0.5);
     char file_buf[1024];
+    
+    // char path[64];
+    // if (sscanf(buffer+6, "%63s", path) != 1) {
+    //     printf("Usage: write -offset=<num> <path>\n");
+    //     return;
+    // }
 
-    printf("--- INIZIO SCRITTURA FILE ---\n");
-    printf("DA CLIENT: Scrivi il testo. Dopodiche' scrivi 'END' su una nuova riga isolato e premi invio per terminare.\n");
+    char err[64];
+    memset(err,0,sizeof(err));
+    read(sockfd, err,sizeof(err));
+    if(strncmp(err,"ERROR",5)==0){
+        printf(COLOR_YELLOW"Usage: write -offset=<num> <path>\n"COLOR_RESET);
+        return;
+    }else if(strncmp(err, "OFF_ER",6)==0){
+            printf(COLOR_RED"Error: offset length too long!\n"COLOR_RESET);
+            return;
+    }else if(strncmp(err,"NO_OFF", 6)==0){
+            printf(COLOR_RED"Error: no offset inserted\n"COLOR_RESET);
+            return;
+    }else if(strncmp(err,"US",2)==0){
+        printf(COLOR_YELLOW "Usage: read -offset=<num> <path>\n" COLOR_RESET);
+        return;
+    }else if(strncmp(err, "OK",2)==0){
+            printf("Perfect we can take input\n");
+    }
+        
+
+    printf(COLOR_MAGENTA"--- START WRITING FILE -------------\n"COLOR_RESET);
+    printf(COLOR_CIANO"FROM CLIENT: Write here your text. Then write 'END' on a new line and press ENTER to close\n"COLOR_RESET);
 
     
     //write_client(sockfd, buffer);
@@ -38,7 +65,7 @@ void client_write_data(int sockfd) {
         write(sockfd, file_buf, strlen(file_buf));
     }
     
-    printf("---DA CLIENT: FINE SCRITTURA. Attendo conferma salvataggio... ---\n");
+    printf(COLOR_CIANO"---FROM CLIENT: TERMINATE TO WRITE. Waiting for file saving... ---------\n"COLOR_RESET);
     // Appena esco da qui, il while principale riprende e...
     // ...incontrerà receive_message() che leggerà "File salvato correttamente".
 }
@@ -46,63 +73,47 @@ void client_write_data(int sockfd) {
 
 
 void client_read_data(int sockfd,char *buffer) {
-    char file_buf[BUFFER_SIZE];
-
-    // int is_set = 0; 
-    // char *args = buffer + 5;
-    // int num=0;
-    // int consumed=0;
-    
-    // if (strncmp(args, "-offset ", 8) == 0) {
-    //     is_set = 1;      // We found the option!
-    //     args += 8;       // Shift the pointer of three positions (hop " ")
-    //     int i;
-    //     if( (i=sscanf(args, "%d%n", &num, &consumed))==1){//%*[^0-9]%d  ---> hop all the non integer input , %n per contare
-    //     args += consumed;
-    //     // Now args point to the beginnig of the path
-    // }else{
-    //     printf("Fail to save num\n");
-    // }
-    // }
-
-    // if(is_set && num > 1000){
-    //     printf(COLOR_RED "Errore: Offset non valido\n" COLOR_RESET);
-    //     return;}
+    char file_buf[SIZE];
 
     char path[64];
     if (sscanf(buffer+5, "%63s", path) != 1) {
-        printf("Usage: read -offset=<num> <path>\n");
+        printf(COLOR_YELLOW"Usage: read -offset=<num> <path>\n"COLOR_RESET);
         return;
     }
     //write_client(sockfd, buffer);
    
     
-    memset(file_buf, 0, BUFFER_SIZE);
-    ssize_t l = read(sockfd, file_buf, BUFFER_SIZE-1);
+    memset(file_buf, 0, SIZE);
+    ssize_t l = read(sockfd, file_buf, SIZE-1);
     //printf("Letto da client: %ld\n", l);
     if(l<=0){return;}
     file_buf[l] = '\0'; // Assicura che la stringa sia terminata
+
     // 2. Controllo degli errori basato sul messaggio del server
-    //printf("Letto dal client: %s\n", file_buf);
-    // if (strstr(file_buf, "ERR_OFFSET") != NULL || strstr(file_buf, "ERR_OFFSET\n") != NULL) {
-    //     memset(file_buf, 0, BUFFER_SIZE);
-    //     printf(COLOR_RED "Errore: Offset non valido (più grande della dimensione del file)!\n" COLOR_RESET);
-    //     return;
-    // }
      if (strncmp(file_buf, "ERR_OFFSET", 10) == 0) {
-        memset(file_buf, 0, BUFFER_SIZE);
-        printf(COLOR_RED "Errore: Offset non valido (più grande della dimensione del file)!\n" COLOR_RESET);
+        memset(file_buf, 0, SIZE);
+        printf(COLOR_RED "Error: Offset not valid (too big for the file size)!\n" COLOR_RESET);
         return;
+    }else if(strncmp(file_buf, "NO_OFF", 6)==0){
+        memset(file_buf, 0, SIZE);
+        printf(COLOR_RED "Error: Offset not inserted!\n" COLOR_RESET);
+        return;
+    }else if(strncmp(file_buf,"US",2)==0){
+        memset(file_buf, 0, SIZE);
+        printf(COLOR_YELLOW "Usage: read -offset=<num> <path>\n" COLOR_RESET);
+        return;
+    }else if(strncmp(file_buf, "OK", 2)==0){
+        printf("We are ready to read\n");
     }
     // Leggo da tastiera
-    printf("--- INIZIO TRASCRIZIONE FILE ---\n");
-    printf("DA CLIENT: THIS IS THE TEXT OF THE FILE.\n");
+    printf(COLOR_MAGENTA"--- START FILE TRANSCRIPTION---\n"COLOR_RESET);
+    printf(COLOR_CIANO"FROM CLIENT: THIS IS THE CONTENT OF THE FILE.\n"COLOR_RESET);
     if (fputs(file_buf, stdout) == EOF){
         printf("Read to stdout failed.\n");
         return;
     }
     //write(sockfd, file_buf, strlen(file_buf));
     //printf("Ecco cosa hai scritto = %s",file_buf);
-    printf("---DA CLIENT: FINE FILE... ---\n");
-    
+    printf(COLOR_CIANO"---FROM CLIENT: FINISH TO SHOW FILE... ---\n"COLOR_RESET);
+
 }
