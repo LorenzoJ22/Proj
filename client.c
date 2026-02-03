@@ -19,25 +19,13 @@ int can_exit() {
     int status;
     pid_t pid;
 
-    // 1. PULIZIA (The Reaper): Raccogliamo tutti i processi che sono GIÀ finiti.
-    // Se non lo facciamo, un processo finito ma non "raccolto" (zombie) 
-    // sembrerebbe ancora esistente e bloccherebbe l'exit.
     while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
         printf("\n[BG] Nota: Il processo background %d è terminato proprio ora.\n", pid);
     }
-
-    // 2. CONTROLLO VIVI
-    // Chiamiamo waitpid ancora una volta.
-    // Se restituisce 0: Significa "Esistono figli, ma sono ancora vivi e vegeti".
-    // Se restituisce -1: Significa "Non ho più figli (ECHILD)".
-    
     if (waitpid(-1, NULL, WNOHANG) == 0) {
-        // Return 0: C'è ancora qualcuno vivo!
-        return 0; // FALSE: Non puoi uscire
+        return 0; 
     }
-    
-    // Return -1: Nessun figlio rimasto.
-    return 1; // TRUE: Puoi uscire
+    return 1; 
 }
 
 
@@ -140,92 +128,13 @@ int main(int argc, char *argv[]){
 
 
             if (strncmp(buffer, "upload", 6) == 0) {
-
-            int background_mode = 0;
-            char *local_path = NULL;
-            char *remote_path = NULL;
-
-            char *token = strtok(buffer, " \n"); // first token is "upload"
-
-            token = strtok(NULL, " \n"); // second token is the local path
-
-            if (token == NULL) {
-                printf("Uso: upload [-b] <local_path> <server_path>\n");
+                client_upload(sockfd, buffer, ip, port, current_username);
                 continue;
             }
-
-            if (strcmp(token, "-b") == 0) {
-                // Trovata opzione background!
-                background_mode = 1;
-                
-                // Il prossimo token deve essere il local_path
-                local_path = strtok(NULL, " \n");
-            } else {
-                // Non c'è -b, quindi questo token è già il local_path
-                local_path = token;
-            }
-
-
-            if (local_path != NULL) {
-                remote_path = strtok(NULL, " \n");
-            }
-
-
-            if (local_path == NULL || remote_path == NULL) {
-                printf("Error: Missing arguments.\n");
-                printf("Usage: upload [-b] <local_path> <server_path>\n");
-                continue;
-            }
-
-            printf("[DEBUG] Local: %s | Remote: %s | Bg: %d\n", local_path, remote_path, background_mode);
-            
-            upload_file(sockfd, local_path, remote_path, background_mode, ip, port, current_username);
-
-            //send_message(sockfd, "");
-            continue;
-
-        }
 
             if (strncmp(buffer, "download", 8) == 0) {
 
-                int background_mode = 0;
-                char *remote_path = NULL;
-                char *local_path = NULL;
-
-                char *token = strtok(buffer, " \n"); // first token is "download"
-
-                token = strtok(NULL, " \n"); // second token is the remote path
-
-                if (token == NULL) {
-                    printf("Uso: download [-b] <server_path> <local_path>\n");
-                    continue;
-                }
-
-                if (strcmp(token, "-b") == 0) {
-                    // Trovata opzione background!
-                    background_mode = 1;
-                    
-                    // Il prossimo token deve essere il remote_path
-                    remote_path = strtok(NULL, " \n");
-                } else {
-                    // Non c'è -b, quindi questo token è già il remote_path
-                    remote_path = token;
-                }
-
-                if (remote_path != NULL) {
-                    local_path = strtok(NULL, " \n");
-                }
-
-
-                if (local_path == NULL || remote_path == NULL) {
-                    printf("Error: Missing arguments.\n");
-                    printf("Usage: download [-b] <server_path> <local_path>\n");
-                    continue;
-                }
-
-                printf("[DEBUG] Remote: %s | Local: %s | Bg: %d\n", remote_path, local_path, background_mode);
-
-                download_file(sockfd, remote_path, local_path, background_mode, ip, port, current_username);
+                client_download(sockfd, buffer, ip, port, current_username);
                 sleep(0.5);
                 continue;
             }
