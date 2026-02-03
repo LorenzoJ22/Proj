@@ -584,7 +584,7 @@ void delete(int client_fd, char* buffer, Session *s){
 
 
 void write_client(int client_fd, char* buffer, Session *s){
-     if (!(s->logged_in)) {
+    if (!(s->logged_in)) {
         char msg[] = "Cannot list files while you are guest\n";
         write(client_fd, msg, strlen(msg));
         return;
@@ -605,9 +605,9 @@ void write_client(int client_fd, char* buffer, Session *s){
         args += consumed;
         // Now args point to the beginnig of the path
     }else{
-        printf("Salvataggio num fallita\n");
+        printf("Fail to save num\n");
     }
-    printf("args e': %s, cosumed invece:%d, i letti sono %d\n", args, consumed, i);
+        printf("args e': %s, cosumed:%d, char readed %d\n", args, consumed, i);
     }
 
     char path[64];
@@ -664,7 +664,7 @@ void write_client(int client_fd, char* buffer, Session *s){
             
             
             if (realpath(parent_dir, resolved_parent) == NULL) {
-                dprintf(client_fd, "Error: Destination directory not found or access denied (%s)\n", strerror(errno));
+                dprintf(client_fd, COLOR_RED"Error: Destination directory not found or access denied (%s)\n"COLOR_RESET, strerror(errno));
                 return;
             }
             
@@ -696,6 +696,13 @@ void write_client(int client_fd, char* buffer, Session *s){
     fstat(file_fd, &st);
 
     off_t size = st.st_size;
+
+    //check if the offset length is longer than the file size.
+    if(size < num){
+        dprintf(client_fd,COLOR_RED"Error: offset length too long!\n"COLOR_RESET); 
+        return;
+    }
+
     off_t tail_size = size - num;
     printf("File_size:%ld, Tail_size: %ld\n", size, tail_size);
     char *tail = malloc(tail_size);
@@ -713,7 +720,6 @@ void write_client(int client_fd, char* buffer, Session *s){
         // Legge una riga dal socket (gestisce blocchi e segnali)
         ssize_t n = read(client_fd, line_buf, sizeof(line_buf));
         printf("Letto n: %ld\n", n);
-        // Se n <= 0, c'è stato un errore o il client si è disconnesso
         if (n <= 0) break;
 
         // 5. Controllo "END"
@@ -754,4 +760,99 @@ void write_client(int client_fd, char* buffer, Session *s){
     close(file_fd);
 
 
+}
+
+
+void read_client(int client_fd, char *buffer, Session *s){
+    if (!(s->logged_in)) {
+        char msg[] = "Cannot list files while you are guest\n";
+        write(client_fd, msg, strlen(msg));
+        return;
+    }
+
+    int is_set = 0; 
+    char *args = buffer + 5;
+    int num=0;
+    int consumed=0;
+    
+    if (strncmp(args, "-offset ", 8) == 0) {
+        printf("adding offset..\n");
+        is_set = 1;      // We found the option!
+        args += 8;       // Shift the pointer of three positions (hop " ")
+        int i;
+        if( (i=sscanf(args, "%d%n", &num, &consumed))==1){//%*[^0-9]%d  ---> hop all the non integer input , %n per contare
+        args += consumed;
+        // Now args point to the beginnig of the path
+    }else{
+        printf("Fail to save num\n");
+    }
+        printf("args is: %s, cosumed instead:%d, readed %d\n", args, consumed, i);
+    }
+
+    char path[64];
+    memset(path, 0, sizeof(path)); 
+
+    // 1. Parsing logic, and we add to args the number length and a space..
+    if (sscanf(args, "%63s", path) != 1) {
+        dprintf(client_fd,"Usage: read -offset=<num> <path>\n");
+        return;
+    }
+
+    char full_path[PATH_MAX + 1000];
+
+    if (realpath(path, full_path) == NULL) {
+        dprintf(client_fd, COLOR_RED"Error: Destination directory not found or access denied (%s)\n"COLOR_RESET, strerror(errno));
+        return;
+    }
+            
+    //check for home violation creation
+    if(check_home_violation(full_path, client_fd, s)==-1) return;
+
+    int file_fd;
+    
+    file_fd = open(full_path, O_RDONLY);
+    
+
+    if (file_fd < 0) {
+        dprintf(client_fd, "Error creating file '%s': %s\n", full_path, strerror(errno));
+        return;
+    }
+                   
+    char line_buf[2048];
+    char line_control[2048];
+    //With the offset, we have to insert the new strings without cancel the rest of file
+    struct stat st;
+    fstat(file_fd, &st);
+    off_t size = st.st_size;
+    snprintf(line_control, sizeof(line_control), "The size of file is :%ld, instead the offset is:%d error offset too long!", size, num);
+    //write(client_fd, line_control, sizeof(line_control));
+    //check if the offset length is longer than the file size.
+    if(size < num){
+        write(client_fd, "ERR_OFFSET", 10);
+        printf("Ho inviato errore offs, esco dalla funzione read_client e torno nel while principale\n");
+        //write(client_fd, line_control, sizeof(line_control));
+        //dprintf(client_fd,COLOR_RED"Error: offset length too long!\n"COLOR_RESET);
+        close(file_fd);  
+        return;
+    }
+
+    if(is_set){
+    lseek(file_fd, num, SEEK_SET);
+    }
+
+    ssize_t l = read(file_fd, line_buf, sizeof(line_buf));
+    printf("Letto l da server: %ld\n", l);
+    if(l<=0){
+        write(client_fd, "EMPTY_OR_READ_ERROR", 19);
+        return;
+    }
+
+    if (write(client_fd, line_buf, l) < 0) {
+        dprintf(client_fd, "Error writing to file: %s\n", strerror(errno));
+        return;
+        }
+        //send_prompt(client_fd,s);
+    printf("At the end of write from server\n");
+    lseek(file_fd, 0, SEEK_SET);
+    close(file_fd);
 }

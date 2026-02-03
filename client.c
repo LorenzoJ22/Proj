@@ -36,6 +36,8 @@ int main(int argc, char *argv[]){
         }
         //buffer[n] = '\0';        
         printf("Size: %ld and Response from server:%s",strlen(buffer), buffer);
+        fflush(stdout);
+
         memset(buffer, 0, sizeof(buffer));
         //printf("Insert command to send to server: ");
         //fflush(stdout);
@@ -44,18 +46,23 @@ int main(int argc, char *argv[]){
         //^i try to move the remover of \n beacuse he shift the output..
         
         
-        
         send_message(sockfd, buffer);
         
         
         if (strncmp(buffer, "write ", 6) == 0) {
-        // Se sì, entro nella modalità "Invio File"
-        // NON devo tornare subito su all'inizio del while per fare receive_message!
-        client_write_data(sockfd); 
-    }
+            // If so, I enter "Send File" mode.
+            // I do NOT have to immediately go back to the beginning of the while loop to do receive_message!
+            client_write_data(sockfd); 
+        }
 
+        if (strncmp(buffer, "read ", 5) == 0) {
+            // If so, I enter "Send File" mode.
+            // I do NOT have to immediately go back to the beginning of the while loop to do receive_message!
+            client_read_data(sockfd,buffer); 
+            
+        }
 
-        if(strcmp(buffer, "exit") == 0){
+        if(strcmp(buffer, "exit") == 0 || strcmp(buffer, "exit ")==0){
             break;
         }
         
