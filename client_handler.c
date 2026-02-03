@@ -41,13 +41,14 @@ void handle_client(int client_fd, const char *root_dir) {
     
     //send_prompt(client_fd, &s);
 
+    
     while (1) {
 
         memset(buffer, 0, sizeof(buffer)); // clear buffer
         send_prompt(client_fd, &s);
         int n = read(client_fd, buffer, sizeof(buffer)-1);
         if (n <= 0) break; // connection closed or error
-        buffer[n] = '\0'; //we have to terminate with \0 because read didn't put it
+        //buffer[n] = '\0'; //we have to terminate with \0 because read didn't put it
         printf("[FIGLIO %d] Messaggio ricevuto: %s\n", getpid(), buffer);
         printf("[DEBUG] Buffer pulito: '%s' (lunghezza: %lu)\n", buffer, strlen(buffer));
         //buffer[strcspn(buffer, "\n\r")] = 0;
@@ -72,6 +73,7 @@ void handle_client(int client_fd, const char *root_dir) {
             continue;
         }
 
+        /*Add here the if to check if the current user is logged in, so we don't have to repetly put it in every function*/
 
         //create [-d] <path><permission> command, create a file 
         if(strncmp(buffer, "create ", 7) ==0){
@@ -79,7 +81,7 @@ void handle_client(int client_fd, const char *root_dir) {
             continue;
         }
 
-        if(strncmp(buffer, "cd ", 3)==0){
+        if((strncmp(buffer, "cd ", 3)==0) || strncmp(buffer, "cd", 2)==0){
             change_directory(client_fd, buffer, &s);
             continue;
         }
@@ -94,7 +96,7 @@ void handle_client(int client_fd, const char *root_dir) {
             continue;
         }
 
-        if(strncmp(buffer, "list ", 5)==0){
+        if(strncmp(buffer, "list ", 5)==0 || strncmp(buffer, "list", 4)==0){
             list(client_fd, buffer, &s);
             continue;
         }
@@ -104,6 +106,15 @@ void handle_client(int client_fd, const char *root_dir) {
             continue;
         }
 
+        if(strncmp(buffer, "write ", 6)==0){
+            write_client(client_fd, buffer, &s);
+            continue;
+        }
+
+        if(strncmp(buffer, "read ", 5)==0){
+            read_client(client_fd, buffer, &s);
+          continue;
+        }
         if (strncmp(buffer, "upload ", 7) == 0) {
             upload(client_fd, buffer, &s);
             continue;
