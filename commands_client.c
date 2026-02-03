@@ -585,13 +585,12 @@ void delete(int client_fd, char* buffer, Session *s){
 
 
 
+
+
+
 void write_client(int client_fd, char* buffer, Session *s){
     if (!(s->logged_in)) {
         char msg[] = "Cannot list files while you are guest\n";
-void upload (int client_fd, char* command_args, Session *s){
-
-    if (!(s->logged_in)) {
-        char msg[] = "Cannot upload files while you are guest\n";
         write(client_fd, msg, strlen(msg));
         return;
     }
@@ -769,7 +768,13 @@ void upload (int client_fd, char* command_args, Session *s){
 }
 
 
+void upload (int client_fd, char* command_args, Session *s){
 
+    if (!(s->logged_in)) {
+        char msg[] = "Cannot upload files while you are guest\n";
+        write(client_fd, msg, strlen(msg));
+        return;
+    }
     char filepath[256];
     long filesize;
     
@@ -833,12 +838,7 @@ void upload (int client_fd, char* command_args, Session *s){
     printf("File received successfully: %s\n", filepath);
 }
 
-void download(int client_fd, char* command_args, Session *s){
-
-    if (!(s->logged_in)) {
-        char msg[] = "Cannot download files while you are guest\n";
-
-void read_client(int client_fd, char *buffer, Session *s){
+    void read_client(int client_fd, char *buffer, Session *s){
     if (!(s->logged_in)) {
         char msg[] = "Cannot list files while you are guest\n";
         write(client_fd, msg, strlen(msg));
@@ -902,14 +902,14 @@ void read_client(int client_fd, char *buffer, Session *s){
     snprintf(line_control, sizeof(line_control), "The size of file is :%ld, instead the offset is:%d error offset too long!", size, num);
     //write(client_fd, line_control, sizeof(line_control));
     //check if the offset length is longer than the file size.
-    if(size < num){
-        write(client_fd, "ERR_OFFSET", 10);
-        printf("Ho inviato errore offs, esco dalla funzione read_client e torno nel while principale\n");
-        //write(client_fd, line_control, sizeof(line_control));
-        //dprintf(client_fd,COLOR_RED"Error: offset length too long!\n"COLOR_RESET);
-        close(file_fd);  
-        return;
-    }
+    // if(size < num){
+    //     write(client_fd, "ERR_OFFSET", 10);
+    //     printf("Ho inviato errore offs, esco dalla funzione read_client e torno nel while principale\n");
+    //     //write(client_fd, line_control, sizeof(line_control));
+    //     //dprintf(client_fd,COLOR_RED"Error: offset length too long!\n"COLOR_RESET);
+    //     close(file_fd);  
+    //     return;
+    // }
 
     if(is_set){
     lseek(file_fd, num, SEEK_SET);
@@ -930,8 +930,20 @@ void read_client(int client_fd, char *buffer, Session *s){
     printf("At the end of write from server\n");
     lseek(file_fd, 0, SEEK_SET);
     close(file_fd);
-    char filepath[256];
     
+    }
+    
+    
+void download(int client_fd, char* command_args, Session *s){
+
+    if (!(s->logged_in)) {
+        char msg[] = "Cannot download files while you are guest\n";
+        write(client_fd, msg, strlen(msg));
+        return;
+    }
+
+    char filepath[256];
+
     // Parsing of arguments
     if (sscanf(command_args, "download %255s", filepath) != 1) {
         char *msg = "ERROR: Invalid format. Use: download <server path> <client path>\n";

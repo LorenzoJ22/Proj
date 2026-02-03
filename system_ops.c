@@ -365,7 +365,7 @@ int resolve_safe_create_path(char *raw_input, int client_fd, Session *s, char *f
     // --- LOGICA DEL COLLEGA (Fine) ---
 
     // 5. Costruzione path finale (Se siamo qui, è tutto sicuro)
-    snprintf(final_path_out, PATH_MAX, "%s/%s", resolved_parent, filename_part);
+    snprintf(final_path_out, PATH_MAX+1000, "%s/%s", resolved_parent, filename_part);
     
     return 0; // Successo
 }

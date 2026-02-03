@@ -83,7 +83,7 @@ void client_read_data(int sockfd,char *buffer) {
     if(l<=0){return;}
     file_buf[l] = '\0'; // Assicura che la stringa sia terminata
     // 2. Controllo degli errori basato sul messaggio del server
-    printf("Letto dal client: %s\n", file_buf);
+    //printf("Letto dal client: %s\n", file_buf);
     // if (strstr(file_buf, "ERR_OFFSET") != NULL || strstr(file_buf, "ERR_OFFSET\n") != NULL) {
     //     memset(file_buf, 0, BUFFER_SIZE);
     //     printf(COLOR_RED "Errore: Offset non valido (più grande della dimensione del file)!\n" COLOR_RESET);
@@ -104,5 +104,5 @@ void client_read_data(int sockfd,char *buffer) {
     //write(sockfd, file_buf, strlen(file_buf));
     //printf("Ecco cosa hai scritto = %s",file_buf);
     printf("---DA CLIENT: FINE FILE... ---\n");
-    fflush(stdout);
+    
 }
