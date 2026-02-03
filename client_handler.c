@@ -113,8 +113,10 @@ void handle_client(int client_fd, const char *root_dir) {
 
         if(strncmp(buffer, "read ", 5)==0){
             read_client(client_fd, buffer, &s);
+            sleep(0.5);
           continue;
         }
+
         if (strncmp(buffer, "upload ", 7) == 0) {
             upload(client_fd, buffer, &s);
             continue;

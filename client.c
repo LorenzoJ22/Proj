@@ -15,11 +15,6 @@
 
 
 
-
-
-int main(int argc, char *argv[]){
-
-
 int can_exit() {
     int status;
     pid_t pid;
@@ -77,16 +72,21 @@ int main(int argc, char *argv[]){
             perror("select");
             break;
         }
-        //buffer[n] = '\0';        
-        printf("Size: %ld and Response from server:%s",strlen(buffer), buffer);
-        fflush(stdout);
-
-        memset(buffer, 0, sizeof(buffer));
+        
+        // //buffer[n] = '\0';        
+        // printf("Size: %ld and Response from server:%s",strlen(buffer), buffer);
+        // fflush(stdout);
+        
         //printf("Insert command to send to server: ");
         //fflush(stdout);
-        fgets(buffer, sizeof(buffer), stdin);
-        buffer[strcspn(buffer, "\n")] = 0; //remove newline character
+       
         //^i try to move the remover of \n beacuse he shift the output..
+        // memset(buffer, 0, sizeof(buffer));
+        // //printf("Insert command to send to server: ");
+        // //fflush(stdout);
+        // fgets(buffer, sizeof(buffer), stdin);
+        // buffer[strcspn(buffer, "\n")] = 0; //remove newline character
+        // //^i try to move the remover of \n beacuse he shift the output..
 
 
         if (FD_ISSET(sockfd, &readfds)) {
@@ -121,7 +121,7 @@ int main(int argc, char *argv[]){
             // Evitiamo invii vuoti che potrebbero confondere il server
             if (strlen(buffer) == 0) continue;
 
-            if (strcmp(buffer, "exit") == 0) {
+            if (strcmp(buffer, "exit") == 0 || strcmp(buffer, "exit ") == 0) {
                 if (can_exit()) {
                     printf("Exit in progress. Goodbye!\n");
                     close(sockfd);
@@ -230,6 +230,22 @@ int main(int argc, char *argv[]){
                 continue;
             }
 
+            if (strncmp(buffer, "write ", 6) == 0) {
+            // If so, I enter "Send File" mode.
+            // I do NOT have to immediately go back to the beginning of the while loop to do receive_message!
+            send_message(sockfd, buffer);
+            client_write_data(sockfd); 
+            continue;
+            }
+
+            if (strncmp(buffer, "read ", 5) == 0) {
+            // If so, I enter "Send File" mode.
+            // I do NOT have to immediately go back to the beginning of the while loop to do receive_message!
+            send_message(sockfd, buffer);
+            client_read_data(sockfd,buffer); 
+            continue;
+            }
+            
             send_message(sockfd, buffer);
         }
 
@@ -247,29 +263,14 @@ int main(int argc, char *argv[]){
         // printf("Size: %ld and Response from server:%s",strlen(buffer), buffer);
         // memset(buffer, 0, sizeof(buffer));
         
-        send_message(sockfd, buffer);
+        //send_message(sockfd, buffer);
         
-        
-        if (strncmp(buffer, "write ", 6) == 0) {
-            // If so, I enter "Send File" mode.
-            // I do NOT have to immediately go back to the beginning of the while loop to do receive_message!
-            client_write_data(sockfd); 
-        }
-
-        if (strncmp(buffer, "read ", 5) == 0) {
-            // If so, I enter "Send File" mode.
-            // I do NOT have to immediately go back to the beginning of the while loop to do receive_message!
-            client_read_data(sockfd,buffer); 
-            
-        }
-
-        if(strcmp(buffer, "exit") == 0 || strcmp(buffer, "exit ")==0){
-            break;
-        }
         
         // fgets(buffer, sizeof(buffer), stdin);
         // buffer[strcspn(buffer, "\n")] = 0; //remove newline character
         
+
+
         
         // if (strncmp(buffer, "upload", 6) == 0) {
 
