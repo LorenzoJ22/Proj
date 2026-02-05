@@ -22,21 +22,44 @@ void client_write_data(int sockfd, char *buffer) {
 
     char err[64];
     memset(err,0,sizeof(err));
-    read(sockfd, err,sizeof(err));
-    if(strncmp(err,"ERROR",5)==0){
+    ssize_t m = read(sockfd, err,sizeof(err));
+
+    printf("[DEBUG CLIENT] : '%s', byte %ld.\n", err, m);
+
+    if (m > 0 && strstr(err, "ERROR_LOCKED")) {
+        printf(COLOR_RED "Error: File locked by another user!\n" COLOR_RESET);
+        return;
+    }
+    if (m > 0 && strstr(err, "ER_PATH")) {
+        printf(COLOR_RED "Error: Destination directory not found or access denied \n" COLOR_RESET);
+        return;
+    }
+    if (m > 0 && strstr(err, "INVALID_NAME")) {
+        printf(COLOR_RED "Error: File name not allowed \n" COLOR_RESET);
+        return;
+    }
+
+    if(strncmp(err,"ERROR",5)==0){//wrong parse of path
         printf(COLOR_YELLOW"Usage: write -offset=<num> <path>\n"COLOR_RESET);
         return;
-    }else if(strncmp(err, "OFF_ER",6)==0){
-            printf(COLOR_RED"Error: offset length too long!\n"COLOR_RESET);
-            return;
-    }else if(strncmp(err,"NO_OFF", 6)==0){
-            printf(COLOR_RED"Error: no offset inserted\n"COLOR_RESET);
-            return;
-    }else if(strncmp(err,"US",2)==0){
-        printf(COLOR_YELLOW "Usage: read -offset=<num> <path>\n" COLOR_RESET);
+    }else if(strncmp(err, "OFF_ER",6)==0){//wrong offset length
+        printf(COLOR_RED"Error: offset length too long!\n"COLOR_RESET);
+        return;
+    }else if(strncmp(err,"NO_OFF", 6)==0){//wrong parse of offset
+        printf(COLOR_RED"Error: no offset inserted\n"COLOR_RESET);
+        return;
+    }else if(strncmp(err,"US",2)==0){//wrong parse of offset without space
+        printf(COLOR_YELLOW "Usage no space after off: write -offset=<num> <path>\n" COLOR_RESET);
+        return;
+    }else if (strncmp(err, "ERROR_LOCKED", 12) == 0) {//file already blocked
+        printf(COLOR_RED "Error: The file is currently in use by another user. Please try again later.\n" COLOR_RESET);
+        return;
+    }else if (strncmp(err, "ER_FIL", 6) == 0) {//file already blocked
+        printf(COLOR_RED "Error: Is not possible to open the file .\n" COLOR_RESET);
         return;
     }else if(strncmp(err, "OK",2)==0){
-            printf("Perfect we can take input\n");
+        memset(err,0,sizeof(err));
+        printf("Perfect we can take input\n");
     }
         
 
@@ -47,7 +70,7 @@ void client_write_data(int sockfd, char *buffer) {
     //write_client(sockfd, buffer);
     while(1) {
         memset(file_buf, 0, sizeof(file_buf));
-        
+
         // Leggo da tastiera
         if (fgets(file_buf, sizeof(file_buf), stdin) == NULL) break;
         //printf("Ecco cosa hai scritto = %s",file_buf);
@@ -81,14 +104,14 @@ void client_read_data(int sockfd,char *buffer) {
         return;
     }
     //write_client(sockfd, buffer);
-   
-    
+    // char err[64];
+    // ssize_t g =read()
+    char *data_to_print = file_buf;
     memset(file_buf, 0, SIZE);
     ssize_t l = read(sockfd, file_buf, SIZE-1);
     //printf("Letto da client: %ld\n", l);
     if(l<=0){return;}
     file_buf[l] = '\0'; // Assicura che la stringa sia terminata
-
     // 2. Controllo degli errori basato sul messaggio del server
      if (strncmp(file_buf, "ERR_OFFSET", 10) == 0) {
         memset(file_buf, 0, SIZE);
@@ -102,18 +125,28 @@ void client_read_data(int sockfd,char *buffer) {
         memset(file_buf, 0, SIZE);
         printf(COLOR_YELLOW "Usage: read -offset=<num> <path>\n" COLOR_RESET);
         return;
+    }else if(strncmp(file_buf, "EMPTY_OR_READ_ERROR", 19)==0){
+        memset(file_buf, 0, SIZE);
+        printf(COLOR_YELLOW"File empty.."COLOR_RESET COLOR_RED" ..or error while reading\n"COLOR_RESET);
+        return;
+    }else if(strncmp(file_buf, "ERROR_LOCKED", 12)==0){
+        memset(file_buf, 0, SIZE);
+        printf(COLOR_RED"File already in use!\n"COLOR_RESET);
+        return;
     }else if(strncmp(file_buf, "OK", 2)==0){
+        data_to_print += 2;
         printf("We are ready to read\n");
     }
+
     // Leggo da tastiera
     printf(COLOR_MAGENTA"--- START FILE TRANSCRIPTION---\n"COLOR_RESET);
     printf(COLOR_CIANO"FROM CLIENT: THIS IS THE CONTENT OF THE FILE.\n"COLOR_RESET);
-    if (fputs(file_buf, stdout) == EOF){
+    if (fputs(data_to_print, stdout) == EOF){
         printf("Read to stdout failed.\n");
         return;
     }
-    //write(sockfd, file_buf, strlen(file_buf));
-    //printf("Ecco cosa hai scritto = %s",file_buf);
+    sleep(10);
+   
     printf(COLOR_CIANO"---FROM CLIENT: FINISH TO SHOW FILE... ---\n"COLOR_RESET);
 
 }

@@ -17,6 +17,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
+#include <sys/file.h>
 
 #define CHUNK_SIZE 4096
 #include <sys/socket.h>
@@ -371,12 +372,30 @@ void chmods(int client_fd, char *buffer, Session *s){
         char msg[] = "Error: Directory does not exist or you don't have permission\n";
         write(client_fd, msg, strlen(msg));
     } */
+    int fd = open(full_path, O_RDONLY);
+    if(errno == EACCES){
+        printf("You can procede anyways, owner have permission\n");
+    }else if (fd == -1) {
+        dprintf(client_fd, COLOR_RED"Error opening file '%s': %s\n"COLOR_RESET, full_path, strerror(errno));
+        return;
+        }
 
+        if(lock_commands(fd,client_fd,0,0)!=0){
+        return;
+        }
+        sleep(5);  
+
+        
         if(chmod(full_path, perms)!=0){
             perror("Error with chmod\n");
             dprintf(client_fd, COLOR_RED"Error with chmod\n"COLOR_RESET);
+            unlock(fd);
+            close(fd);
             return;
         }
+
+        unlock(fd);
+        close(fd);
         printf("Permission changed correctly\n");
         dprintf(client_fd,COLOR_GREEN"Permission changed correctly\n"COLOR_RESET);
 }
@@ -425,9 +444,21 @@ void move(int client_fd, char* buffer, Session *s){
 
         dprintf(client_fd,"Il full_path_src: %s\n", full_path_src);
         dprintf(client_fd,"Il full_path_dest: %s\n", full_path_dest);
+
+        int fd = open(full_path_src, O_WRONLY);
+        if (fd == -1) {
+        dprintf(client_fd, COLOR_RED"Error opening or creating file '%s': %s\n"COLOR_RESET, full_path_src, strerror(errno));
+        return;
+        }
+
+        if(lock_commands(fd,client_fd,1,0)!=0){
+        return;
+        }
+        sleep(5);
         //now we can move the file in the directory of the second path
         move_file(client_fd, full_path_src, full_path_dest);
-
+        unlock(fd);
+        close(fd);
 }
 
 
@@ -445,7 +476,7 @@ void list(int client_fd, char *buffer, Session *s) {
 
     // 1. Logica di parsing
     int len1 = strlen(buffer);
-    if(len1 == 4) {
+    if(len1 == 4 || len1==5) {
         strcpy(path, "."); 
     }else{
     if (sscanf(buffer + 5, "%63s", path) != 1) {
@@ -473,6 +504,9 @@ void list(int client_fd, char *buffer, Session *s) {
         char msg[] = "\033[0;31mError: Cannot open directory (check permissions or path)\033[0m\n";
         write(client_fd, msg, strlen(msg));
         return;
+    }else if(errno == EACCES){
+        printf("Is not possible to open dir\n");
+        dprintf(client_fd,"Is not possible to open dir");
     }
 
     // ALLOCAZIONE BUFFER DI RISPOSTA
@@ -571,14 +605,43 @@ void delete(int client_fd, char* buffer, Session *s){
     }
     if(check_home_violation(full_path,client_fd, s)==-1)return;
 
+
+    int fd = open(full_path, O_WRONLY);
+    if (fd == -1) {
+        dprintf(client_fd, COLOR_RED"Error opening file '%s': %s\n"COLOR_RESET, full_path, strerror(errno));
+        return;
+    }
+
+    /*control that full_path is not a directory*/
+    // struct stat st;
+    // if (fstat(fd, &st) != 0) {
+    //     perror("File not found\n");
+    //     return;
+    // }
+
+    // if (S_ISDIR(st.st_mode)) {
+    //     // È una directory! 
+    //     // Invia al client "ERROR_IS_DIR" (magari in rosso!)
+    //     printf("Error: %s is a directory.\n", path);
+    //     unlock(fd);
+    //     close(fd);
+    // } else 
+
+    if(lock_commands(fd,client_fd,1,0)!=0){
+        return;
+    }
+    sleep(5);
     // Restituisce 0 in caso di successo, -1 in caso di errore
     if (unlink(full_path) == 0) {
         printf("File eliminato con successo.\n");
         dprintf(client_fd, COLOR_GREEN"File deleted correctly: %s\n"COLOR_RESET, get_last(path, client_fd));
-
+        unlock(fd);
+        close(fd);
     } else {
         perror("Errore durante l'eliminazione");
         dprintf(client_fd, COLOR_RED"Error with elimination of: %s\n"COLOR_RESET, get_last(path, client_fd));
+        unlock(fd);
+        close(fd);
     }
 }
 
@@ -619,8 +682,6 @@ void write_client(int client_fd, char* buffer, Session *s){
         write(client_fd,"US",2);
         printf("Fail to save off\n");
         return;
-    }else{
-        
     }
 
     char path[64];
@@ -632,7 +693,7 @@ void write_client(int client_fd, char* buffer, Session *s){
         //dprintf(client_fd,"Usage: from server write -offset=<num> <path>\n");
         return;
     }
-
+        printf("Il path passato adesso e':%s\n",path);
         char full_path[PATH_MAX + 1000];
         char parent_dir[PATH_MAX];
         char filename_part[64];
@@ -675,32 +736,55 @@ void write_client(int client_fd, char* buffer, Session *s){
                 write(client_fd, msg, strlen(msg));
                 return;
             }
+            if (strstr(filename_part, "-")) {
+                char msg[] = "INVALID_NAME";
+                write(client_fd, msg, strlen(msg));
+                //printf(COLOR_RED "Error: You cannot name file with initial ' - '\n" COLOR_RESET);
+                return;
+            }
             
             
             if (realpath(parent_dir, resolved_parent) == NULL) {
-                dprintf(client_fd, COLOR_RED"Error: Destination directory not found or access denied (%s)\n"COLOR_RESET, strerror(errno));
+                write(client_fd, "ER_PATH",7);
+                //dprintf(client_fd, COLOR_RED"Error: Destination directory not found or access denied (%s)\n"COLOR_RESET, strerror(errno));
                 return;
             }
             
             //check for home violation creation
             if(check_home_violation(resolved_parent, client_fd, s)==-1) return;
-            int file_fd;
+
             // Mettiamo insieme la cartella padre pulita + / + il nome file
             snprintf(full_path, PATH_MAX+1000, "%s/%s", resolved_parent, filename_part);
-
+            
+            int file_fd;
             if(is_set){
                 file_fd = open(full_path, O_CREAT | O_RDWR, S_IRWXU);
+                dprintf(client_fd,"File open or created successfully\n");
             }else{
                 file_fd = open(full_path, O_CREAT | O_WRONLY | O_APPEND, S_IRWXU); //ci andrebbe append al posto di trunc
             }
-
+            
             if (file_fd < 0) {
-                dprintf(client_fd, "Error creating file '%s': %s\n", full_path, strerror(errno));
+                write(client_fd,"ER_FIL",6);
+                dprintf(client_fd, "Error creating/open file '%s': %s\n", full_path, strerror(errno));
                 return;
             }
-
-            
-    //dprintf(client_fd, "Ready. Type content. Type 'END' on a new line to finish.\n");
+            // if (flock(file_fd, LOCK_EX | LOCK_NB) < 0) {
+            //     if (errno == EWOULDBLOCK) {
+            //         printf("Entrato nel errno del block\n");
+            //         //dprintf(client_fd,"Bloccato\n");
+            //         // Il file è già usato da un altro client!
+            //         write(client_fd, "ERROR_LOCKED", 12);
+            //         //send(client_fd, "ERROR_LOCKED", 64, 0);
+            //         close(file_fd);
+            //         return;
+            //     }else{perror("Error\n");}
+            // }
+            // printf("File of current process blocked succesfully\n");
+            if(lock_commands(file_fd,client_fd,1,1)!=0){
+                printf("Occupied, so return\n");
+                return;
+            }
             
     char line_buf[2048];
             
@@ -714,9 +798,11 @@ void write_client(int client_fd, char* buffer, Session *s){
     //check if the offset length is longer than the file size.
     if(size < num){
         write(client_fd, "OFF_ER",6);
-        //dprintf(client_fd,COLOR_RED"Error: offset length too long!\n"COLOR_RESET); 
+        //dprintf(client_fd,COLOR_RED"Error: offset length too long!\n"COLOR_RESET);
+        unlock(file_fd);
+        close(file_fd); 
         return;
-    }else{
+     }else{
         write(client_fd, "OK", 2);
     }
 
@@ -772,7 +858,7 @@ void write_client(int client_fd, char* buffer, Session *s){
     write(file_fd, tail, tail_size);
     }
     free(tail);
-
+    unlock(file_fd);
     // Chiudiamo il file che abbiamo scritto
     close(file_fd);
 
@@ -888,9 +974,9 @@ void upload (int client_fd, char* command_args, Session *s){
         write(client_fd,"US",2);
         printf("Fail to save off\n");
         return;
-    }else{
-        write(client_fd,"OK",2);
-    }
+     }//else{
+    //     write(client_fd,"OK",2);
+    // }
 
     char path[64];
     memset(path, 0, sizeof(path)); 
@@ -916,10 +1002,17 @@ void upload (int client_fd, char* command_args, Session *s){
     
 
     if (file_fd < 0) {
-        dprintf(client_fd, "Error creating file '%s': %s\n", full_path, strerror(errno));
+        dprintf(client_fd, COLOR_RED"Error creating/opening file '%s': %s\n"COLOR_RESET, full_path, strerror(errno));
         return;
     }
-                   
+         int dai=0; 
+     if((dai = lock_commands(file_fd,client_fd,0,1))!=0){
+            printf("Occupied, so return\n");
+            return;
+        }
+    
+    printf("DAI = %d\n", dai);
+
     char line_buf[2048];
     char line_control[2048];
     //With the offset, we have to insert the new strings without cancel the rest of file
@@ -934,6 +1027,7 @@ void upload (int client_fd, char* command_args, Session *s){
         printf("Ho inviato errore offs, esco dalla funzione read_client e torno nel while principale\n");
         //write(client_fd, line_control, sizeof(line_control));
         //dprintf(client_fd,COLOR_RED"Error: offset length too long!\n"COLOR_RESET);
+        unlock(file_fd);
         close(file_fd);  
         return;
     }
@@ -946,16 +1040,24 @@ void upload (int client_fd, char* command_args, Session *s){
     printf("Letto l da server: %ld\n", l);
     if(l<=0){
         write(client_fd, "EMPTY_OR_READ_ERROR", 19);
+        unlock(file_fd);
+        close(file_fd);
         return;
     }
 
     if (write(client_fd, line_buf, l) < 0) {
         dprintf(client_fd, "Error writing to file: %s\n", strerror(errno));
+        unlock(file_fd);
+        close(file_fd);
         return;
         }
+
+        sleep(9);
         //send_prompt(client_fd,s);
     printf("At the end of write from server\n");
     lseek(file_fd, 0, SEEK_SET);
+    unlock(file_fd);
+    printf("File unlock from read server\n");
     close(file_fd);
     
     }
@@ -990,6 +1092,17 @@ void download(int client_fd, char* command_args, Session *s){
         send_message(client_fd, msg);
         return;
     }
+    int fd = fileno(fp);
+
+    /*da finire manca la unlock*/
+    if (flock(fd, LOCK_EX | LOCK_NB) == -1) {
+        // Se arriviamo qui, un altro client ha il lock
+        printf("Blocco nel download\n");
+        send(fd, "ERROR_LOCKED", 12, 0);
+        fclose(fp);
+        return;
+    }
+    printf("File bloccato con successo\n");
 
     fseek(fp, 0, SEEK_END);
     long filesize = ftell(fp);
