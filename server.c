@@ -81,8 +81,6 @@ int main (int argc, char *argv[]) {
         }
 
         if (activity < 0 && errno == EINTR) {
-            // È tutto ok, siamo stati solo svegliati dal segnale SIGCHLD.
-            // Non dobbiamo fare nulla, solo ricominciare il while per pulire readfds
             continue; 
         }
 
