@@ -151,32 +151,32 @@ int create_group(const char *groupname) {
 }
 
 
-void move_file(int client_fd, const char *source_path, const char *dest_dir) {
-    char full_dest_path[PATH_MAX];
-    char *filename;
+void move_file(int client_fd, const char *source_path, char *full_path_dest_res) {
+    // char full_dest_path[PATH_MAX];
+    // char *filename;
 
-    // 1. Estraiamo il nome del file dal percorso sorgente
-    // Esempio: "home/user/file.txt" -> filename punta a "file.txt"
-    filename = strrchr(source_path, '/');
-    if (filename == NULL) {
-        filename = (char *)source_path; // Case where there is no slash
-    } else {
-        filename++; // Hop the slash
-    }
+    // // 1. Estraiamo il nome del file dal percorso sorgente
+    // // Esempio: "home/user/file.txt" -> filename punta a "file.txt"
+    // filename = strrchr(source_path, '/');
+    // if (filename == NULL) {
+    //     filename = (char *)source_path; // Case where there is no slash
+    // } else {
+    //     filename++; // Hop the slash
+    // }
 
-    // 2. We built the complete path of destination 
-    // Es: "home/user/subdir" + "/" + "file.txt"
-    // We use snprintf to avoid buffer overflow
-    size_t needed = snprintf(full_dest_path, sizeof(full_dest_path), "%s/%s", dest_dir, filename);
+    // // 2. We built the complete path of destination 
+    // // Es: "home/user/subdir" + "/" + "file.txt"
+    // // We use snprintf to avoid buffer overflow
+    // size_t needed = snprintf(full_dest_path, sizeof(full_dest_path), "%s/%s", dest_dir, filename);
 
-    if (needed >= sizeof(full_dest_path)) {
-        dprintf(client_fd,"Error: Path too long.\n");
-        return;
-    }
+    // if (needed >= sizeof(full_dest_path)) {
+    //     dprintf(client_fd,"Error: Path too long.\n");
+    //     return;
+    // }
 
     // 3. Execute the effective movement 
-    if (rename(source_path, full_dest_path) == 0) {
-        dprintf(client_fd,COLOR_GREEN"Moved with success from %s to %s\n"COLOR_RESET, source_path, full_dest_path);
+    if (rename(source_path, full_path_dest_res) == 0) {
+        dprintf(client_fd,COLOR_GREEN"Moved with success from %s to %s\n"COLOR_RESET, source_path, full_path_dest_res);
         return;
     } else {
         // Management of common error

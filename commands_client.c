@@ -376,7 +376,7 @@ void chmods(int client_fd, char *buffer, Session *s){
     //implementare il lock per cartelle 
     int fd = open(full_path, O_RDONLY);
     if(errno == EACCES){
-        printf("You can procede anyways, owner have permission\n");
+        printf("You can procede, owner have permission\n");
     }else if (fd == -1) {
         dprintf(client_fd, COLOR_RED"Error opening file '%s': %s\n"COLOR_RESET, full_path, strerror(errno));
         return;
@@ -411,20 +411,36 @@ void move(int client_fd, char* buffer, Session *s){
             return;
         }
 
-        char path_src[64];
-        char path_dest[64];  
+        char *path_src;
+        char *path_dest;
 
-        if (sscanf(buffer + 5, "%63s %63s", path_src, path_dest) != 2 ) {
-                char msg[] = COLOR_YELLOW"Use: move <path1> <path2>\n"COLOR_RESET;
-                write(client_fd, msg, strlen(msg));
-                return;
+        // buffer + 5 salta "move "
+        char *args = buffer + 5;
+
+        // Prendi il primo argomento
+        path_src = strtok(args, " \n\r\t");
+        // Prendi il secondo argomento
+        path_dest = strtok(NULL, " \n\r\t");
+
+        if (path_src == NULL || path_dest == NULL) {
+            char msg[] = COLOR_YELLOW"Use: move <path_src> <path_dest>\n"COLOR_RESET;
+            write(client_fd, msg, strlen(msg));
+            return;
         }
+        // char path_src[64];
+        // char path_dest[64];  
+
+        // if (sscanf(buffer + 5, "%63s %63s", path_src, path_dest) != 2 ) {
+        //         char msg[] = COLOR_YELLOW"Use: move <path1> <path2>\n"COLOR_RESET;
+        //         write(client_fd, msg, strlen(msg));
+        //         return;
+        // }
 
         dprintf(client_fd,"Il path_src: %s\n", path_src);
         dprintf(client_fd,"Il path_dest: %s\n", path_dest);
 
         char full_path_src[PATH_MAX+1000];
-        char full_path_dest[PATH_MAX+1000];
+        //char full_path_dest[PATH_MAX+1000];
         //now we have to normalize the two path passed and chek also if they are absolute or relative
 
         if (realpath(path_src, full_path_src) == NULL) {
@@ -433,20 +449,29 @@ void move(int client_fd, char* buffer, Session *s){
             return;
         }
 
-        if(realpath(path_dest, full_path_dest) == NULL){
-            dprintf(client_fd, COLOR_RED"Error: Cannot resolve path '%s': %s\n"COLOR_RESET, path_dest, strerror(errno));
+        // if(realpath(path_dest, full_path_dest) == NULL){
+        //     dprintf(client_fd, COLOR_RED"Error: Cannot resolve path '%s': %s\n"COLOR_RESET, path_dest, strerror(errno));
+        //     return;
+        // }
+
+        dprintf(client_fd, "Path reale_src: %s\n", full_path_src);
+        //dprintf(client_fd, "Path reale_dest: %s\n", full_path_dest);
+    
+        if(check_home_violation(full_path_src, client_fd, s)==-1) return;
+        //if(check_home_violation(full_path_dest, client_fd, s)==-1) return;
+        
+        char full_path_dest_res[PATH_MAX+1000];
+        if(resolve_safe_create_path(path_dest, client_fd, s, full_path_dest_res)==0){
+            printf("Succed to move!\n");
+        }else{
+            printf("Error to move\n");
             return;
         }
 
-        dprintf(client_fd, "Path reale_src: %s\n", full_path_src);
-        dprintf(client_fd, "Path reale_dest: %s\n", full_path_dest);
-    
-        if(check_home_violation(full_path_src, client_fd, s)==-1) return;
-        if(check_home_violation(full_path_dest, client_fd, s)==-1) return;
 
         dprintf(client_fd,"Il full_path_src: %s\n", full_path_src);
-        dprintf(client_fd,"Il full_path_dest: %s\n", full_path_dest);
-
+        dprintf(client_fd,"Il full_path_dest: %s\n", full_path_dest_res);
+        
         int fd = open(full_path_src, O_WRONLY);
         if (fd == -1) {
         dprintf(client_fd, COLOR_RED"Error opening or creating file '%s': %s\n"COLOR_RESET, full_path_src, strerror(errno));
@@ -458,7 +483,7 @@ void move(int client_fd, char* buffer, Session *s){
         }
         sleep(5);
         //now we can move the file in the directory of the second path
-        move_file(client_fd, full_path_src, full_path_dest);
+        move_file(client_fd, full_path_src, full_path_dest_res);
         unlock(fd);
         close(fd);
 }
@@ -1095,18 +1120,7 @@ void download(int client_fd, char* command_args, Session *s){
         send_message(client_fd, msg);
         return;
     }
-    int fd = fileno(fp);
-
-    /*da finire manca la unlock*/
-    if (flock(fd, LOCK_EX | LOCK_NB) == -1) {
-        // Se arriviamo qui, un altro client ha il lock
-        printf("Blocco nel download\n");
-        send(fd, "ERROR_LOCKED", 12, 0);
-        fclose(fp);
-        return;
-    }
-    printf("File bloccato con successo\n");
-
+   
     int fd = fileno(fp);
     if(flock(fd, LOCK_SH | LOCK_NB) != 0) {
         printf("Cannot open file, already locked.\n");
