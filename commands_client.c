@@ -17,6 +17,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
+#include <sys/file.h>
 
 #define CHUNK_SIZE 4096
 #include <sys/socket.h>
@@ -961,6 +962,15 @@ void download(int client_fd, char* command_args, Session *s){
         perror("File open failed");
         char *msg = "ERROR: Cannot open file on server.\n";
         send_message(client_fd, msg);
+        return;
+    }
+
+    int fd = fileno(fp);
+    if(flock(fd, LOCK_SH | LOCK_NB) != 0) {
+        printf("Cannot open file, already locked.\n");
+        char *msg = "ERROR: Cannot lock file on server.\n";
+        send_message(client_fd, msg);
+        fclose(fp);
         return;
     }
 
