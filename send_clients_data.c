@@ -14,19 +14,18 @@ void client_write_data(int sockfd, char *buffer) {
     sleep(0.5);
     char file_buf[1024];
     
-    // char path[64];
-    // if (sscanf(buffer+6, "%63s", path) != 1) {
-    //     printf("Usage: write -offset=<num> <path>\n");
-    //     return;
-    // }
-
+    
     char err[64];
+    char * data = err;
     memset(err,0,sizeof(err));
     ssize_t m = read(sockfd, err,sizeof(err));
 
     printf("[DEBUG CLIENT] : '%s', byte %ld.\n", err, m);
 
-    if (m > 0 && strstr(err, "ERROR_LOCKED")) {
+    if (m > 0 && strncmp(err, "OK",2)==0) {
+        printf(COLOR_GREEN "File ready to be written\n" COLOR_RESET);
+    }else{
+    if (m > 0 && strstr(data, "ERROR_LOCKED")) {
         printf(COLOR_RED "Error: File locked by another user!\n" COLOR_RESET);
         return;
     }
@@ -36,6 +35,10 @@ void client_write_data(int sockfd, char *buffer) {
     }
     if (m > 0 && strstr(err, "INVALID_NAME")) {
         printf(COLOR_RED "Error: File name not allowed \n" COLOR_RESET);
+        return;
+    }
+    if (m > 0 && strstr(err, "OFF_UNDER")) {
+        printf(COLOR_RED "Error: Offset too small!\n" COLOR_RESET);
         return;
     }
 
@@ -57,11 +60,11 @@ void client_write_data(int sockfd, char *buffer) {
     }else if (strncmp(err, "ER_FIL", 6) == 0) {//file already blocked
         printf(COLOR_RED "Error: Is not possible to open the file .\n" COLOR_RESET);
         return;
-    }else if(strncmp(err, "OK",2)==0){
-        memset(err,0,sizeof(err));
-        printf("Perfect we can take input\n");
-    }
-        
+    }//else if(strncmp(err, "OK",2)==0){
+    //     memset(err,0,sizeof(err));
+    //     printf("Perfect we can take input\n");
+    // }
+}
 
     printf(COLOR_MAGENTA"--- START WRITING FILE -------------\n"COLOR_RESET);
     printf(COLOR_CIANO"FROM CLIENT: Write here your text. Then write 'END' on a new line and press ENTER to close\n"COLOR_RESET);

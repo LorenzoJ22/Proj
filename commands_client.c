@@ -372,6 +372,8 @@ void chmods(int client_fd, char *buffer, Session *s){
         char msg[] = "Error: Directory does not exist or you don't have permission\n";
         write(client_fd, msg, strlen(msg));
     } */
+
+    //implementare il lock per cartelle 
     int fd = open(full_path, O_RDONLY);
     if(errno == EACCES){
         printf("You can procede anyways, owner have permission\n");
@@ -671,6 +673,11 @@ void write_client(int client_fd, char* buffer, Session *s){
         int i;
         if( (i=sscanf(args, "%d%n", &num, &consumed))==1){//%*[^0-9]%d  ---> hop all the non integer input , %n per contare
         args += consumed;
+        if(num<0){
+        write(client_fd, "OFF_UNDER",9);
+        printf("Offset not vaild too small!\n");
+        return;
+        }
         // Now args point to the beginnig of the path
     }else{
         write(client_fd,"NO_OFF",6);
@@ -759,7 +766,6 @@ void write_client(int client_fd, char* buffer, Session *s){
             int file_fd;
             if(is_set){
                 file_fd = open(full_path, O_CREAT | O_RDWR, S_IRWXU);
-                dprintf(client_fd,"File open or created successfully\n");
             }else{
                 file_fd = open(full_path, O_CREAT | O_WRONLY | O_APPEND, S_IRWXU); //ci andrebbe append al posto di trunc
             }
@@ -767,6 +773,10 @@ void write_client(int client_fd, char* buffer, Session *s){
             if (file_fd < 0) {
                 write(client_fd,"ER_FIL",6);
                 dprintf(client_fd, "Error creating/open file '%s': %s\n", full_path, strerror(errno));
+                return;
+            }
+            if(lock_commands(file_fd,client_fd,1,1)!=0){
+                printf("Occupied, so return\n");
                 return;
             }
             // if (flock(file_fd, LOCK_EX | LOCK_NB) < 0) {
@@ -781,13 +791,8 @@ void write_client(int client_fd, char* buffer, Session *s){
             //     }else{perror("Error\n");}
             // }
             // printf("File of current process blocked succesfully\n");
-            if(lock_commands(file_fd,client_fd,1,1)!=0){
-                printf("Occupied, so return\n");
-                return;
-            }
             
-    char line_buf[2048];
-            
+    char line_buf[2048]; 
             
     //With the offset, we have to insert the new strings without cancel the rest of file
     struct stat st;
@@ -796,7 +801,7 @@ void write_client(int client_fd, char* buffer, Session *s){
     off_t size = st.st_size;
 
     //check if the offset length is longer than the file size.
-    if(size < num){
+    if(is_set && size < num){
         write(client_fd, "OFF_ER",6);
         //dprintf(client_fd,COLOR_RED"Error: offset length too long!\n"COLOR_RESET);
         unlock(file_fd);
@@ -1005,13 +1010,12 @@ void upload (int client_fd, char* command_args, Session *s){
         dprintf(client_fd, COLOR_RED"Error creating/opening file '%s': %s\n"COLOR_RESET, full_path, strerror(errno));
         return;
     }
-         int dai=0; 
-     if((dai = lock_commands(file_fd,client_fd,0,1))!=0){
+         
+    if(lock_commands(file_fd,client_fd,0,1)!=0){
             printf("Occupied, so return\n");
             return;
         }
     
-    printf("DAI = %d\n", dai);
 
     char line_buf[2048];
     char line_control[2048];
