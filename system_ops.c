@@ -9,7 +9,7 @@
 #include <errno.h>
 #include <string.h>
 #include <dirent.h>
-
+#include <sys/file.h>
 
 #include "system_ops.h"
 #include "values.h"
@@ -392,4 +392,38 @@ char* get_last(char *path, int client_fd){
             }
             dprintf(client_fd,"Ecco %s\n", filename);
             return filename;
+}
+
+
+
+
+int lock_commands(int file_fd, int client_fd, int is_ex_or_sh, int r_w){//choose, with is = 1 put EX, instead is = 0 put SH.
+    int lock;
+    if(is_ex_or_sh==1){
+        lock = LOCK_EX;
+    }else if(is_ex_or_sh == 0){
+        lock = LOCK_SH;
+    }
+     if (flock(file_fd, lock | LOCK_NB) < 0) {
+        if (errno == EWOULDBLOCK) {
+            printf("Entrato nel errno del block\n");
+            // Il file è già usato da un altro client!
+            if(r_w==1){//r_w = 1 if you want to send message to read or write, otherwise = 0 if it is a normal command
+                write(client_fd, "ERROR_LOCKED", 12);
+            }else {
+                dprintf(client_fd,COLOR_RED"Error: file locked at the moment\n"COLOR_RESET);
+            }
+            //send(client_fd, "ERROR_LOCKED", 64, 0);
+            close(file_fd);
+            return -1;
+        }else{
+            perror("Error\n");
+        }
+    }
+    printf("File of current process blocked successfully\n");
+    return 0;
+}
+
+void unlock(int file_fd){
+    flock(file_fd, LOCK_UN);
 }
