@@ -106,8 +106,11 @@ int main(int argc, char *argv[]){
 
             buffer[strcspn(buffer, "\n")] = 0;  // rimuove newline
 
-            // Evitiamo invii vuoti che potrebbero confondere il server
-            if (strlen(buffer) == 0) continue;
+            // handler special commands
+            if (strlen(buffer) == 0){
+                send_message(sockfd, ""); 
+                continue;
+            } 
 
             if (strcmp(buffer, "exit") == 0 || strcmp(buffer, "exit ") == 0) {
                 if (can_exit()) {

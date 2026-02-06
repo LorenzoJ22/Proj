@@ -65,15 +65,13 @@ void handle_client(int client_fd, const char *root_dir) {
         send_prompt(client_fd, &s);
         int n = read(client_fd, buffer, sizeof(buffer)-1);
         if (n <= 0) break; // connection closed or error
-        //buffer[n] = '\0'; //we have to terminate with \0 because read didn't put it
         printf("[FIGLIO %d] Messaggio ricevuto: %s\n", getpid(), buffer);
         printf("[DEBUG] Buffer pulito: '%s' (lunghezza: %lu)\n", buffer, strlen(buffer));
-        //buffer[strcspn(buffer, "\n\r")] = 0;
 
          if (strlen(buffer) == 0) {
             dprintf(client_fd,"Void space: '%s'\n", buffer);
             char b[PATH_MAX];
-            dprintf(client_fd, "Adesso sei in: %s\n",getcwd(b,PATH_MAX));
+            dprintf(client_fd, "Current directory: %s\n",getcwd(b,PATH_MAX));
             continue; 
         } 
 
