@@ -11,6 +11,23 @@
 #include <sys/types.h>
 #include <stdlib.h>
 #include <pwd.h>
+#include <errno.h>
+#include <sys/wait.h>
+#include <signal.h>
+
+
+void sigchld_handler(int s) {
+    // Salviamo errno perché waitpid potrebbe modificarlo
+    // (e non vogliamo rovinare il lavoro del main se è stato interrotto)
+    int saved_errno = errno;
+
+    // while loop: Perché?
+    // Perché se muoiono 5 figli contemporaneamente, potremmo ricevere
+    // un solo segnale SIGCHLD. Dobbiamo raccoglierli tutti in un colpo solo.
+    while(waitpid(-1, NULL, WNOHANG) > 0);
+
+    errno = saved_errno;
+}
 
 
 

@@ -5,5 +5,6 @@
 
 void handle_client(int client_fd, const char *root_dir);
 void send_prompt(int client_fd, Session *s);
+void sigchld_handler(int s);
 
 #endif
