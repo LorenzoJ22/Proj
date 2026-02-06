@@ -61,21 +61,7 @@ int main(int argc, char *argv[]){
             break;
         }
         
-        // //buffer[n] = '\0';        
-        // printf("Size: %ld and Response from server:%s",strlen(buffer), buffer);
-        // fflush(stdout);
         
-        //printf("Insert command to send to server: ");
-        //fflush(stdout);
-       
-        //^i try to move the remover of \n beacuse he shift the output..
-        // memset(buffer, 0, sizeof(buffer));
-        // //printf("Insert command to send to server: ");
-        // //fflush(stdout);
-        // fgets(buffer, sizeof(buffer), stdin);
-        // buffer[strcspn(buffer, "\n")] = 0; //remove newline character
-        // //^i try to move the remover of \n beacuse he shift the output..
-
 
         if (FD_ISSET(sockfd, &readfds)) {
             memset(buffer, 0, sizeof(buffer));
@@ -146,7 +132,7 @@ int main(int argc, char *argv[]){
             // If so, I enter "Send File" mode.
             // I do NOT have to immediately go back to the beginning of the while loop to do receive_message!
             send_message(sockfd, buffer);
-            client_write_data(sockfd); 
+            client_write_data(sockfd,buffer); 
             continue;
             }
 
