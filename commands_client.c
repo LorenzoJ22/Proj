@@ -930,6 +930,7 @@ void upload (int client_fd, char* command_args, Session *s){
         total_received += bytes_received;
         printf("\r[Server] Ricevuti: %ld / %ld \n", total_received, filesize);
     }
+    
     fflush(fp);
     fclose(fp);
 
