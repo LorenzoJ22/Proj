@@ -39,8 +39,8 @@ int main(int argc, char *argv[]){
     char buffer[BUFFER_SIZE];  
 
     //if not enough arguments, use default values
-    char *ip = (argc >= 3) ? argv[2] : "127.0.0.1";
-    int port = (argc >= 4) ? atoi(argv[3]) : 8080;
+    char *ip = (argc >= 2) ? argv[1] : "127.0.0.1";//argc = 3, argv[0] = main, argv[1]= 127.0.0.1 argv[2]=port
+    int port = (argc >= 3) ? atoi(argv[2]) : 8080;
 
 
     int sockfd = connect_to_server(ip, port);
