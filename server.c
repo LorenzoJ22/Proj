@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5,6 +7,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <arpa/inet.h>
+#include <sys/select.h>
+#include <signal.h>
+#include <errno.h>
+#include <sys/wait.h>
 
 
 #include "network.h"
@@ -20,12 +26,13 @@
 
 int main (int argc, char *argv[]) {
 
-
-
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <root_directory> [ip] [port]\n", argv[0]);
         exit(1);
     }
+
+    fd_set readfds; // La lista degli "occhi" del server
+    int max_fd;
 
     // store command line arguments and print them
     char *root_dir = argv[1];
@@ -38,11 +45,6 @@ int main (int argc, char *argv[]) {
 
     create_group(GROUP_NAME);
 
-
-
-
-    
-
     // Check if root directory exists, if not create it
     sys_make_directory(root_dir, 0770, GROUP_NAME, "root");
 
@@ -52,31 +54,109 @@ int main (int argc, char *argv[]) {
     int server_fd = create_server_socket(ip, port);
     printf("Server listening on %s:%d\n", ip, port);
 
+
+    struct sigaction sa;
+    sa.sa_handler = sigchld_handler; // Reap all dead processes
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART; // Restart interrupted system calls
+
+    if (sigaction(SIGCHLD, &sa, NULL) == -1) {
+        perror("sigaction");
+        exit(1);
+    }
+
     while(1){
-        int client_fd = accept_connection(server_fd);
-        printf("Client connected\n");
 
+        FD_ZERO(&readfds);
+        FD_SET(server_fd, &readfds);
+        FD_SET(STDIN_FILENO, &readfds);
 
-        if (client_fd < 0) continue; //if accept failed, continue to next iteration
+        max_fd = (server_fd > STDIN_FILENO) ? server_fd : STDIN_FILENO;
 
-        pid_t pid = fork();
+        int activity = select(max_fd + 1, &readfds, NULL, NULL, NULL);
 
-        if (pid < 0) {
-            perror("Fork failed");
-            close(client_fd);
-            continue;
+        if ((activity < 0) && (errno != EINTR)) {
+            perror("Select error"); // If select returns -1 and it's not because of an interrupted system call, print error
+            break; 
         }
+
+        if (activity < 0 && errno == EINTR) {
+            continue; 
+        }
+
+
+
+        if (FD_ISSET(STDIN_FILENO, &readfds)) {
+            // Handle stdin input
+            char buffer[1024];
+            fgets(buffer, sizeof(buffer), stdin);
+            printf("Received input: %s", buffer);
+
+                if (strcmp(buffer, "exit\n") == 0) {
+                    printf(COLOR_RED"Shutting down server...\n"COLOR_RESET);
+                    close(server_fd);
+                    kill(0, SIGTERM);
+                    return 0;
+                }else {
+                    printf(COLOR_YELLOW"Unknown command, enter 'exit' to quit"COLOR_RESET);
+                }
+        }
+
+
+        if(FD_ISSET(server_fd, &readfds)) {
+
+            int client_fd = accept_connection(server_fd);
+            printf("Client connected\n");
+
+            if (client_fd < 0) {
+                perror("Accept failed");
+                continue;
+            }
+
+            pid_t pid = fork();
+
+            if (pid < 0) {
+                perror("Fork failed");
+                close(client_fd);
+                continue;
+            }
+
+            if (pid == 0) {
+                // Child process
+                close(server_fd); // Close the listening socket in child
+                handle_client(client_fd, root_dir);
+                exit(0);
+            }
+
+            close(client_fd); // Close the connected socket in parent
+
+        }
+
+
+        // int client_fd = accept_connection(server_fd);
+        // printf("Client connected\n");
+
+
+        // if (client_fd < 0) continue; //if accept failed, continue to next iteration
+
+        // pid_t pid = fork();
+
+        // if (pid < 0) {
+        //     perror("Fork failed");
+        //     close(client_fd);
+        //     continue;
+        // }
         
         
-        if (pid == 0) {
-            // Child process
-            close(server_fd); // Close the listening socket in child
-            handle_client(client_fd, root_dir);
-            exit(0);
-        } 
+        // if (pid == 0) {
+        //     // Child process
+        //     close(server_fd); // Close the listening socket in child
+        //     handle_client(client_fd, root_dir);
+        //     exit(0);
+        // } 
             
 
-         close(client_fd); // Close the connected socket in parent
+        //  close(client_fd); // Close the connected socket in parent
         
 
         

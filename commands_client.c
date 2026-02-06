@@ -885,7 +885,6 @@ void upload (int client_fd, char* command_args, Session *s){
     if (sscanf(command_args, "upload %255s %ld", filepath, &filesize) != 2) {
         char *msg = "ERROR: Invalid format. Use: upload <filename> <size>\n";
         send_message(client_fd, msg);
-        //send(client_fd, msg, strlen(msg), 0);
         return;
     }
 
@@ -897,7 +896,6 @@ void upload (int client_fd, char* command_args, Session *s){
 
     printf("Incoming file: %s (%ld bytes)\n", filepath, filesize);
 
-    // 2. Apre il file in scrittura BINARIA ("wb")
     FILE *fp = fopen(filepath, "wb");
     if (fp == NULL) {
         perror("File creation failed");
@@ -914,7 +912,7 @@ void upload (int client_fd, char* command_args, Session *s){
     long total_received = 0;
     int bytes_received;
 
-    // 3. Riceve i dati in un loop fino a completare il file
+    // 3. Receive loop
     while (total_received < filesize) {
 
         long bytes_left = filesize - total_received;
@@ -928,7 +926,7 @@ void upload (int client_fd, char* command_args, Session *s){
 
         fwrite(buffer, 1, bytes_received, fp);
         total_received += bytes_received;
-        printf("\r[Server] Ricevuti: %ld / %ld \n", total_received, filesize);
+        printf("\r[Server] Received: %ld / %ld \n", total_received, filesize);
     }
     fflush(fp);
     fclose(fp);
@@ -936,7 +934,7 @@ void upload (int client_fd, char* command_args, Session *s){
 
     char *msg = "SUCCESS";
     send(client_fd, msg, strlen(msg), 0);
-    printf("Upload completato. Inviato ACK.\n");
+    printf("Upload completed successfully.\n");
     
     printf("File received successfully: %s\n", filepath);
 }
@@ -1108,6 +1106,15 @@ void download(int client_fd, char* command_args, Session *s){
     }
     printf("File bloccato con successo\n");
 
+    int fd = fileno(fp);
+    if(flock(fd, LOCK_SH | LOCK_NB) != 0) {
+        printf("Cannot open file, already locked.\n");
+        char *msg = "ERROR: Cannot lock file on server.\n";
+        send_message(client_fd, msg);
+        fclose(fp);
+        return;
+    }
+
     fseek(fp, 0, SEEK_END);
     long filesize = ftell(fp);
     fseek(fp, 0, SEEK_SET);
@@ -1137,22 +1144,22 @@ void download(int client_fd, char* command_args, Session *s){
             if (to_send > 0) {
                 send_message(client_fd, data_buffer);
                 bytes_sent += to_send;
-                printf("\r[Client] Inviati: %ld byte...", bytes_sent);
+                printf("\r[Client] Send: %ld byte...", bytes_sent);
             }
     }
     
     fclose(fp);
-    printf("File inviato. Attendo conferma dal server...\n");
+    printf("Waiting for server confirmation...\n");
 
 
     char ack[16]= {0};
     if (recv(client_fd, ack, sizeof(ack), 0) <= 0) {
-        perror("Errore ricezione conferma");
+        perror("Error receiving final ACK");
     } else {
         if (strncmp(ack, "SUCCESS", 7) == 0) {
             printf(COLOR_GREEN "File downloaded successfully." COLOR_RESET "\n");
         } else {
-            printf("Errore dal server: %s\n", ack);
+            printf("Server error: %s\n", ack);
         }
     }
     

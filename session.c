@@ -8,10 +8,47 @@
 #include <sys/wait.h>
 #include <pwd.h>
 #include <errno.h>
+#include <grp.h>
 
 #include "system_ops.h"
 #include "session.h"
 #include "permissions.h"
+
+
+
+int check_user_login(const char *username, const char *groupname ){
+
+    struct group *grp = getgrnam(groupname);
+    gid_t target_gid = grp->gr_gid;
+
+    struct passwd *pw = getpwnam(username);
+    if (pw == NULL) {
+        return 0; // Utente non esiste
+    }
+
+    int ngroups = 0;
+    getgrouplist(username, pw->pw_gid, NULL, &ngroups);
+
+    gid_t *groups = malloc(ngroups * sizeof(gid_t));
+    if (groups == NULL) return 0;
+
+    if (getgrouplist(username, pw->pw_gid, groups, &ngroups) == -1) {
+        free(groups);
+        return 0;
+    }
+    
+
+    int found = 0;
+    for (int i = 0; i < ngroups; i++) {
+        if (groups[i] == target_gid) {
+            found = 1;
+            break;
+        }
+    }
+
+    free(groups);
+    return found;
+}
 
 
 void session_init(Session *s, const char *root) {
@@ -32,12 +69,11 @@ int session_login(Session *s, const char *username) {
 
     printf("Attempting login for user: %s\n", username);
 
-    struct passwd *user= getpwnam(username); // check if user exists
+    struct passwd *user = getpwnam(username);
 
-    printf("User lookup result: %s\n", user ? "found" : "not found");
-
-    if (user == NULL) {
-        return -1; // user does not exist
+    if (!check_user_login(username, GROUP_NAME)) {
+        printf("Login failed: User '%s' does not exist or is not in the group '%s'\n", username, GROUP_NAME);
+        return -1; // login failed
     }
 
     // switch to the user's UID and GID
