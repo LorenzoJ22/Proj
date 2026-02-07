@@ -21,4 +21,5 @@ char *get_last(char *path, int client_fd);
 int resolve_safe_create_path(char *raw_input, int client_fd, Session *s, char *final_path_out);
 int lock_commands(int file_fd, int client_fd, int is_ex_or_sh, int r_w);
 void unlock(int file_fd);
+char *custom_basename(char *path);
 #endif

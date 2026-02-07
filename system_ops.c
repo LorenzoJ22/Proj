@@ -156,7 +156,6 @@ void move_file(int client_fd, const char *source_path, char *full_path_dest_res)
     // char *filename;
 
     // // 1. Estraiamo il nome del file dal percorso sorgente
-    // // Esempio: "home/user/file.txt" -> filename punta a "file.txt"
     // filename = strrchr(source_path, '/');
     // if (filename == NULL) {
     //     filename = (char *)source_path; // Case where there is no slash
@@ -165,8 +164,6 @@ void move_file(int client_fd, const char *source_path, char *full_path_dest_res)
     // }
 
     // // 2. We built the complete path of destination 
-    // // Es: "home/user/subdir" + "/" + "file.txt"
-    // // We use snprintf to avoid buffer overflow
     // size_t needed = snprintf(full_dest_path, sizeof(full_dest_path), "%s/%s", dest_dir, filename);
 
     // if (needed >= sizeof(full_dest_path)) {
@@ -174,7 +171,7 @@ void move_file(int client_fd, const char *source_path, char *full_path_dest_res)
     //     return;
     // }
 
-    // 3. Execute the effective movement 
+   
     if (rename(source_path, full_path_dest_res) == 0) {
         dprintf(client_fd,COLOR_GREEN"Moved with success from %s to %s\n"COLOR_RESET, source_path, full_path_dest_res);
         return;
@@ -308,13 +305,13 @@ int check_home_violation(char* resolved_path, int client_fd, Session *s){
 }
 
 
-
+//function that take in input an absolute path with filename not yet created, 
+//so we disconnect the parent dir from the filename and then we add it again at the end, to check the realpath and violation 
 int resolve_safe_create_path(char *raw_input, int client_fd, Session *s, char *final_path_out) {
     char parent_dir[PATH_MAX];
     char filename_part[64];
     char resolved_parent[PATH_MAX];
 
-    // --- LOGICA DEL COLLEGA (Inizio) ---
     
     // 1. Separazione Directory / File
     char *last_slash = strrchr(raw_input, '/');
@@ -362,7 +359,6 @@ int resolve_safe_create_path(char *raw_input, int client_fd, Session *s, char *f
         return -1;
     }
 
-    // --- LOGICA DEL COLLEGA (Fine) ---
 
     // 5. Costruzione path finale (Se siamo qui, è tutto sicuro)
     snprintf(final_path_out, PATH_MAX+1000, "%s/%s", resolved_parent, filename_part);
@@ -426,4 +422,29 @@ int lock_commands(int file_fd, int client_fd, int is_ex_or_sh, int r_w){//choose
 
 void unlock(int file_fd){
     flock(file_fd, LOCK_UN);
+}
+
+
+
+char *custom_basename(char *path) {
+    if (!path || *path == '\0') {
+        return ".";
+    }
+
+    // Cerca l'ultima occorrenza del carattere '/'
+    char *last_slash = strrchr(path, '/');
+
+    // Se non c'è alcuno slash, l'intero path è il filename
+    if (!last_slash) {
+        return path;
+    }
+
+    // Se lo slash è l'ultimo carattere (es. "cartella/"), 
+    // l'utente sta puntando a una directory.
+    if (*(last_slash + 1) == '\0') {
+        return ""; // Restituisce stringa vuota per indicare "nessun file dopo lo slash"
+    }
+
+    // Restituisce tutto ciò che segue l'ultimo slash
+    return last_slash + 1;
 }

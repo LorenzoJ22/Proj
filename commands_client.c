@@ -349,29 +349,7 @@ void chmods(int client_fd, char *buffer, Session *s){
     
         if(check_home_violation(full_path, client_fd, s)==-1) return;
 
-//also in chmod the normal user cannot change permission of directories and files that are not his
 
-     /*     struct stat sb;
-    
-    if (stat(full_path, &sb) == 0 && S_ISDIR(sb.st_mode)  && access(full_path, X_OK) == 0) {
-        
-        // SUCCESS: directory exist.
-        // Update the session with the user
-        // The current user have permission to access 
-        strncpy(s->current_dir, full_path, PATH_MAX - 1);
-        s->current_dir[PATH_MAX - 1] = '\0'; 
-
-        printf("User changed dir to: %s\n", s->current_dir);
-        
-        char msg[PATH_MAX + 50];
-        snprintf(msg, sizeof(msg), "Directory changed to: %s\n", s->current_dir);
-        write(client_fd, msg, strlen(msg));
-
-    } else {
-        // FAIL: directory does not exist or is not a directory
-        char msg[] = "Error: Directory does not exist or you don't have permission\n";
-        write(client_fd, msg, strlen(msg));
-    } */
 
     //implementare il lock per cartelle 
     int fd = open(full_path, O_RDONLY);
@@ -435,7 +413,7 @@ void move(int client_fd, char* buffer, Session *s){
         //         write(client_fd, msg, strlen(msg));
         //         return;
         // }
-
+        
         dprintf(client_fd,"Il path_src: %s\n", path_src);
         dprintf(client_fd,"Il path_dest: %s\n", path_dest);
 
@@ -460,13 +438,38 @@ void move(int client_fd, char* buffer, Session *s){
         if(check_home_violation(full_path_src, client_fd, s)==-1) return;
         //if(check_home_violation(full_path_dest, client_fd, s)==-1) return;
         
-        char full_path_dest_res[PATH_MAX+1000];
-        if(resolve_safe_create_path(path_dest, client_fd, s, full_path_dest_res)==0){
-            printf("Succed to move!\n");
-        }else{
-            printf("Error to move\n");
+        
+    char full_path_dest_res[PATH_MAX+1000];
+    struct stat st_dest;
+    int dest_exists = (stat(path_dest, &st_dest) == 0);
+    
+    if (dest_exists && S_ISDIR(st_dest.st_mode)) {
+        // CASO A: Il path_dest è una directory. 
+        // Dobbiamo appendere il nome del file originale.
+        char *filename = custom_basename(full_path_src);
+        char temp_path[PATH_MAX];
+        
+        snprintf(temp_path, sizeof(temp_path), "%s/%s", path_dest, filename);
+        
+        // Ora risolviamo questo nuovo path combinato
+        if (resolve_safe_create_path(temp_path, client_fd, s, full_path_dest_res) != 0) {
+            return; // Errore già gestito dentro resolve_safe_create_path
+        }
+    } 
+    else {
+        // CASO B: Il path_dest non esiste o include già un (nuovo) filename
+        // Usiamo direttamente la tua logica di risoluzione sicura
+        if (resolve_safe_create_path(path_dest, client_fd, s, full_path_dest_res) != 0) {
             return;
         }
+    }
+
+        // if(resolve_safe_create_path(path_dest, client_fd, s, full_path_dest_res)==0){
+        //     printf("Succed to move!\n");
+        // }else{
+        //     printf("Error to move\n");
+        //     return;
+        // }
 
 
         dprintf(client_fd,"Il full_path_src: %s\n", full_path_src);
