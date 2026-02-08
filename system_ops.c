@@ -10,6 +10,7 @@
 #include <string.h>
 #include <dirent.h>
 #include <sys/file.h>
+#include <arpa/inet.h>
 
 #include "system_ops.h"
 #include "values.h"
@@ -293,8 +294,24 @@ int check_home_violation(char* resolved_path, int client_fd, Session *s){
     size_t root_len = strlen(allowed_root);
 
     if (strncmp(resolved_path, allowed_root, strlen(allowed_root)) != 0) {
-        char msg[] = "\033[1;31mError: Access denied (Outside home directory)\033[0m\n"; 
+        char msg[] = COLOR_RED"Error: Access denied (Outside home directory)\n"COLOR_RESET; 
         write(client_fd, msg, strlen(msg));
+        return -1;
+    }
+    if (resolved_path[root_len] != '\0' && resolved_path[root_len] != '/') {
+        dprintf(client_fd, COLOR_RED"Error: Access denied. Target is not inside your home.\n"COLOR_RESET);
+        return -1;
+    }
+    return 0;
+}
+
+int check_home_violation_r(char* resolved_path, int client_fd, Session *s){
+    char allowed_root[PATH_MAX];
+    snprintf(allowed_root, PATH_MAX, "/%s", s->username);
+
+    size_t root_len = strlen(allowed_root);
+
+    if (strncmp(resolved_path, allowed_root, strlen(allowed_root)) != 0) {
         return -1;
     }
     if (resolved_path[root_len] != '\0' && resolved_path[root_len] != '/') {
@@ -404,12 +421,15 @@ int lock_commands(int file_fd, int client_fd, int is_ex_or_sh, int r_w){//choose
         if (errno == EWOULDBLOCK) {
             printf("Entrato nel errno del block\n");
             // Il file è già usato da un altro client!
-            if(r_w==1){//r_w = 1 if you want to send message to read or write, otherwise = 0 if it is a normal command
-                write(client_fd, "ERROR_LOCKED", 12);
-            }else {
+            if(r_w==1){//r_w = 1 if you want to send message to write, otherwise = 0 if it is a normal command and 2 for read
+                //write(client_fd, "ERROR_LOCKED", 12);
+                uint32_t codice = htonl(RESP_ERR_LOCKED);
+                write(client_fd, &codice, sizeof(uint32_t));
+            }else if(r_w==0){
                 dprintf(client_fd,COLOR_RED"Error: file locked at the moment\n"COLOR_RESET);
-            }
+            }else if(r_w==2){
             //send(client_fd, "ERROR_LOCKED", 64, 0);
+            }
             close(file_fd);
             return -1;
         }else{
@@ -447,4 +467,14 @@ char *custom_basename(char *path) {
 
     // Restituisce tutto ciò che segue l'ultimo slash
     return last_slash + 1;
+}
+
+
+int is_logged_in(int client_fd,Session *s){
+if (!(s->logged_in)) {
+        char msg[] = COLOR_YELLOW"Cannot use this command while you are guest\n"COLOR_RESET;
+        write(client_fd, msg, strlen(msg));
+        return-1;
+    }
+    return 1;
 }

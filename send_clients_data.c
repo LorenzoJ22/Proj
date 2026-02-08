@@ -10,91 +10,192 @@
 #define SIZE 6000
 
 
+// void client_write_data(int sockfd, char *buffer) {
+//     sleep(0.5);
+//     char file_buf[1024];
+    
+    
+//     char err[64];
+//     char * data = err;
+//     memset(err,0,sizeof(err));
+//     ssize_t m = read(sockfd, err,sizeof(err));
+
+//     printf("[DEBUG CLIENT] : '%s', byte %ld.\n", err, m);
+
+//     if (m > 0 && strncmp(err, "OK",2)==0) {
+//         printf(COLOR_GREEN "File ready to be written\n" COLOR_RESET);
+//     }else{
+//     if (m > 0 && strstr(data, "ERROR_LOCKED")) {
+//         printf(COLOR_RED "Error: File locked by another user!\n" COLOR_RESET);
+//         return;
+//     }
+//     if (m > 0 && strstr(err, "ER_PATH")) {
+//         printf(COLOR_RED "Error: Destination directory not found or access denied \n" COLOR_RESET);
+//         return;
+//     }
+//     if (m > 0 && strstr(err, "INVALID_NAME")) {
+//         printf(COLOR_RED "Error: File name not allowed \n" COLOR_RESET);
+//         return;
+//     }
+//     if (m > 0 && strstr(err, "OFF_UNDER")) {
+//         printf(COLOR_RED "Error: Offset too small!\n" COLOR_RESET);
+//         return;
+//     }
+
+//     if(strncmp(err,"ERROR",5)==0){//wrong parse of path
+//         printf(COLOR_YELLOW"Usage: write -offset=<num> <path>\n"COLOR_RESET);
+//         return;
+//     }else if(strncmp(err, "OFF_ER",6)==0){//wrong offset length
+//         printf(COLOR_RED"Error: offset length too long!\n"COLOR_RESET);
+//         return;
+//     }else if(strncmp(err,"NO_OFF", 6)==0){//wrong parse of offset
+//         printf(COLOR_RED"Error: no offset inserted\n"COLOR_RESET);
+//         return;
+//     }else if(strncmp(err,"US",2)==0){//wrong parse of offset without space
+//         printf(COLOR_YELLOW "Usage no space after off: write -offset=<num> <path>\n" COLOR_RESET);
+//         return;
+//     }else if (strncmp(err, "ERROR_LOCKED", 12) == 0) {//file already blocked
+//         printf(COLOR_RED "Error: The file is currently in use by another user. Please try again later.\n" COLOR_RESET);
+//         return;
+//     }else if (strncmp(err, "ER_FIL", 6) == 0) {//file already blocked
+//         printf(COLOR_RED "Error: Is not possible to open the file .\n" COLOR_RESET);
+//         return;
+//     }else if(strncmp(err, "ER_VIOL",7)==0){
+//         printf(COLOR_RED"Error: violation of the home\n"COLOR_RESET);
+//         return;
+//     }else if(strncmp(err, "GUES_ERR",8)==0){
+//         printf("Cannot use write command while you are guest\n");
+//         return;
+//     }
+// }
+
+//     printf(COLOR_MAGENTA"--- START WRITING FILE -------------\n"COLOR_RESET);
+//     printf(COLOR_CIANO"FROM CLIENT: Write here your text. Then write 'END' on a new line and press ENTER to close\n"COLOR_RESET);
+
+    
+//     //write_client(sockfd, buffer);
+//     while(1) {
+//         memset(file_buf, 0, sizeof(file_buf));
+
+//         // Leggo da tastiera
+//         if (fgets(file_buf, sizeof(file_buf), stdin) == NULL) break;
+//         //printf("Ecco cosa hai scritto = %s",file_buf);
+//         // Controllo se l'utente vuole finire
+//         // fgets include il \n, quindi cerco "END\n"
+//         if (strcmp(file_buf, "END\n") == 0) {
+//             // Invio il terminatore al server
+//             printf("Invio messaggio end da client\n");
+//             send_message(sockfd, "END");
+//             break; // ESCO e torno al ciclo principale
+//         }
+
+//         // Invio la riga di testo al server
+//         // NOTA: Qui uso write diretta o send_message, l'importante è inviare i byte
+//         write(sockfd, file_buf, strlen(file_buf));
+//     }
+    
+//     printf(COLOR_CIANO"---FROM CLIENT: TERMINATE TO WRITE. Waiting for file saving... ---------\n"COLOR_RESET);
+//     // Appena esco da qui, il while principale riprende e...
+//     // ...incontrerà receive_message() che leggerà "File salvato correttamente".
+// }
 void client_write_data(int sockfd, char *buffer) {
-    sleep(0.5);
+    uint32_t net_status;
     char file_buf[1024];
-    
-    
-    char err[64];
-    char * data = err;
-    memset(err,0,sizeof(err));
-    ssize_t m = read(sockfd, err,sizeof(err));
 
-    printf("[DEBUG CLIENT] : '%s', byte %ld.\n", err, m);
-
-    if (m > 0 && strncmp(err, "OK",2)==0) {
-        printf(COLOR_GREEN "File ready to be written\n" COLOR_RESET);
-    }else{
-    if (m > 0 && strstr(data, "ERROR_LOCKED")) {
-        printf(COLOR_RED "Error: File locked by another user!\n" COLOR_RESET);
-        return;
-    }
-    if (m > 0 && strstr(err, "ER_PATH")) {
-        printf(COLOR_RED "Error: Destination directory not found or access denied \n" COLOR_RESET);
-        return;
-    }
-    if (m > 0 && strstr(err, "INVALID_NAME")) {
-        printf(COLOR_RED "Error: File name not allowed \n" COLOR_RESET);
-        return;
-    }
-    if (m > 0 && strstr(err, "OFF_UNDER")) {
-        printf(COLOR_RED "Error: Offset too small!\n" COLOR_RESET);
+    // Leggiamo direttamente l'intero dello stato
+    ssize_t m = read(sockfd, &net_status, sizeof(uint32_t));
+    if (m <= 0) {
+        perror("Errore ricezione stato dal server");
         return;
     }
 
-    if(strncmp(err,"ERROR",5)==0){//wrong parse of path
-        printf(COLOR_YELLOW"Usage: write -offset=<num> <path>\n"COLOR_RESET);
-        return;
-    }else if(strncmp(err, "OFF_ER",6)==0){//wrong offset length
-        printf(COLOR_RED"Error: offset length too long!\n"COLOR_RESET);
-        return;
-    }else if(strncmp(err,"NO_OFF", 6)==0){//wrong parse of offset
-        printf(COLOR_RED"Error: no offset inserted\n"COLOR_RESET);
-        return;
-    }else if(strncmp(err,"US",2)==0){//wrong parse of offset without space
-        printf(COLOR_YELLOW "Usage no space after off: write -offset=<num> <path>\n" COLOR_RESET);
-        return;
-    }else if (strncmp(err, "ERROR_LOCKED", 12) == 0) {//file already blocked
-        printf(COLOR_RED "Error: The file is currently in use by another user. Please try again later.\n" COLOR_RESET);
-        return;
-    }else if (strncmp(err, "ER_FIL", 6) == 0) {//file already blocked
-        printf(COLOR_RED "Error: Is not possible to open the file .\n" COLOR_RESET);
-        return;
-    }//else if(strncmp(err, "OK",2)==0){
-    //     memset(err,0,sizeof(err));
-    //     printf("Perfect we can take input\n");
-    // }
-}
+    uint32_t status = ntohl(net_status);
 
-    printf(COLOR_MAGENTA"--- START WRITING FILE -------------\n"COLOR_RESET);
-    printf(COLOR_CIANO"FROM CLIENT: Write here your text. Then write 'END' on a new line and press ENTER to close\n"COLOR_RESET);
+    // Gestione errori tramite switch
+    switch (status) {
+        case RESP_OK:
+            printf(COLOR_GREEN "File ready to be written\n" COLOR_RESET);
+            break;
 
-    
-    //write_client(sockfd, buffer);
+        case RESP_ERR_LOCKED:
+            printf(COLOR_RED "Error: The file is currently in use by another user.\n" COLOR_RESET);
+            return;
+
+        case RESP_ERR_PATH:
+            printf(COLOR_RED "Error: Destination directory not found or access denied\n" COLOR_RESET);
+            return;
+
+        case RESP_ERR_INVALID_NAME:
+            printf(COLOR_RED "Error: File name not allowed\n" COLOR_RESET);
+            return;
+
+        case RESP_ERR_OFFSET_UNDER:
+            printf(COLOR_RED "Error: Offset too small!\n" COLOR_RESET);
+            return;
+
+        case RESP_ERR_OFFSET_LONG:
+            printf(COLOR_RED "Error: offset length too long!\n" COLOR_RESET);
+            return;
+
+        case RESP_ERR_NO_OFFSET:
+            printf(COLOR_RED "Error: no offset inserted\n" COLOR_RESET);
+            return;
+
+        case RESP_USAGE:
+            printf(COLOR_YELLOW "Usage: write -offset=<num> <path>\n" COLOR_RESET);
+            return;
+
+        case RESP_ERR_OPEN:
+            printf(COLOR_RED "Error: Is not possible to open the file.\n" COLOR_RESET);
+            return;
+
+        case RESP_ERR_VIO:
+            printf(COLOR_RED "Error: violation of the home\n" COLOR_RESET);
+            return;
+
+        case RESP_ERR_GUEST:
+            printf(COLOR_RED "Cannot use write command while you are guest\n" COLOR_RESET);
+            return;
+
+        case RESP_ERR_INVALID_FILE_N:
+            printf(COLOR_RED "Error: Invalid file name (trailing slash?)\n" COLOR_RESET);
+            return;
+
+        case RESP_ERR_INVALID_DOT:
+            printf(COLOR_RED "Error: Cannot name a file or directory '.' or '..'\n" COLOR_RESET);
+            return;
+
+        default:
+            printf(COLOR_RED "Generic Error or unknown code: %u\n" COLOR_RESET, status);
+            return;
+    }
+
+    // --- DA QUI IN POI PROCEDE LA SCRITTURA ---
+    printf(COLOR_MAGENTA "--- START WRITING FILE -------------\n" COLOR_RESET);
+    printf(COLOR_CIANO "FROM CLIENT: Write here text. Type 'END' to finish.\n" COLOR_RESET);
+
     while(1) {
         memset(file_buf, 0, sizeof(file_buf));
-
-        // Leggo da tastiera
         if (fgets(file_buf, sizeof(file_buf), stdin) == NULL) break;
-        //printf("Ecco cosa hai scritto = %s",file_buf);
-        // Controllo se l'utente vuole finire
-        // fgets include il \n, quindi cerco "END\n"
-        if (strcmp(file_buf, "END\n") == 0) {
-            // Invio il terminatore al server
-            printf("Invio messaggio end da client\n");
-            send_message(sockfd, "END");
-            break; // ESCO e torno al ciclo principale
-        }
 
-        // Invio la riga di testo al server
-        // NOTA: Qui uso write diretta o send_message, l'importante è inviare i byte
+        if (strcmp(file_buf, "END\n") == 0) {
+            send_message(sockfd, "END");
+            break; 
+        }
         write(sockfd, file_buf, strlen(file_buf));
     }
     
-    printf(COLOR_CIANO"---FROM CLIENT: TERMINATE TO WRITE. Waiting for file saving... ---------\n"COLOR_RESET);
-    // Appena esco da qui, il while principale riprende e...
-    // ...incontrerà receive_message() che leggerà "File salvato correttamente".
+    printf(COLOR_CIANO "--- TERMINATED. Waiting for server... ---\n" COLOR_RESET);
 }
+
+
+
+
+
+
+
+
+
 
 
 
@@ -254,11 +355,102 @@ void client_write_data(int sockfd, char *buffer) {
     
 //     printf(COLOR_CIANO"\n--- FINISH TO SHOW FILE ---\n"COLOR_RESET);
 // }
+
+
+
+
+
+
+
+// void client_read_data(int sockfd, char *buffer) {
+//     char file_buf[SIZE];
+//     uint32_t net_count = 0;
+
+//     // 1. Leggi il numero di byte totali
+//     if (read(sockfd, &net_count, sizeof(uint32_t)) <= 0) {
+//         perror("Errore lettura dimensione");
+//         return;
+//     }
+
+//     uint32_t total_to_receive = ntohl(net_count);
+//     uint32_t total_received = 0;
+//     int is_first_chunk = 1;
+
+//     printf("Ricezione di %u byte...\n", total_to_receive);
+//     //Loop to receive
+//     while (total_received < total_to_receive) {
+//         // Calcola quanto leggere per non sforare il buffer
+//         uint32_t to_read = (total_to_receive - total_received > SIZE - 1) 
+//                            ? SIZE - 1 
+//                            : total_to_receive - total_received;
+
+//         ssize_t l = read(sockfd, file_buf, to_read);
+        
+//         if (l <= 0) {
+//             fprintf(stderr, "\nErrore: Connection closed. Received %u/%u\n", total_received, total_to_receive);
+//             break;
+//         }
+
+//         // 3. Gestione errori del server nel primo pezzo
+//         if (is_first_chunk) {
+//             if (strncmp(file_buf, "ERR_OFFSET", 10) == 0) {
+//                 printf(COLOR_RED "Errore: Offset non valido!\n" COLOR_RESET);
+//                 return;
+//             }
+//             if(strncmp(file_buf, "NO_OFF", 6)==0){
+//             memset(file_buf, 0, SIZE);
+//             printf(COLOR_RED "Error: Offset not inserted!\n" COLOR_RESET);
+//             return;
+//             }else if(strncmp(file_buf,"US",2)==0){
+//             memset(file_buf, 0, SIZE);
+//             printf(COLOR_YELLOW "Usage: read -offset=<num> <path>\n" COLOR_RESET);
+//             return;
+//             }else if(strncmp(file_buf, "EMPTY_OR_READ_ERROR", 19)==0){
+//             memset(file_buf, 0, SIZE);
+//             printf(COLOR_YELLOW"File empty.."COLOR_RESET COLOR_RED" ..or error while reading\n"COLOR_RESET);
+//             return;
+//             }else if(strncmp(file_buf, "ERROR_LOCKED", 12)==0){
+//             memset(file_buf, 0, SIZE);
+//             printf(COLOR_RED"File already in use!\n"COLOR_RESET);
+//             return;
+//             }else if(strncmp(file_buf, "ERR_OPEN", 8)==0){
+//             memset(file_buf, 0, SIZE);
+//             printf(COLOR_RED"Error opening file..\n"COLOR_RESET);
+//             return;
+//             }else if(strncmp(file_buf, "ERR_NOT_FOUND", 13)==0){
+//             memset(file_buf, 0, SIZE);
+//             printf(COLOR_RED"Path invalid or not found!\n"COLOR_RESET);
+//             return;   
+//             }else if(strncmp(file_buf, "ERROR_PARAM", 11)==0){
+//             memset(file_buf, 0, SIZE);
+//             printf(COLOR_YELLOW"Usage: read -offset=<num> <path>\n"COLOR_RESET);
+//             return;   
+//             }else if(strncmp(file_buf, "ERR_VIO", 7)==0){
+//             memset(file_buf, 0, SIZE);
+//             printf(COLOR_RED"Error: violation of the home\n"COLOR_RESET);
+//             return;   
+//             }
+//             is_first_chunk = 0;
+//         }
+
+        
+//         // Usiamo fwrite invece di fputs/printf perché fwrite non si ferma se trova uno '\0' 
+//         // ed è perfetta per file di ogni tipo.
+//         fwrite(file_buf, 1, l, stdout);
+//         fflush(stdout); // Forza l'uscita a video immediata
+
+//         total_received += l;
+//     }
+
+//     printf(COLOR_CIANO "\n--- FINE FILE (%u byte) ---\n" COLOR_RESET, total_received);
+// }
+
+
+
 void client_read_data(int sockfd, char *buffer) {
     char file_buf[SIZE];
     uint32_t net_count = 0;
-
-    // 1. Leggi il numero di byte totali
+    
     if (read(sockfd, &net_count, sizeof(uint32_t)) <= 0) {
         perror("Errore lettura dimensione");
         return;
@@ -267,12 +459,9 @@ void client_read_data(int sockfd, char *buffer) {
     uint32_t total_to_receive = ntohl(net_count);
     uint32_t total_received = 0;
     int is_first_chunk = 1;
+    int header_printed = 0; // Flag per stampare il titolo una sola volta
 
-    printf("Ricezione di %u byte...\n", total_to_receive);
-
-    // 2. Loop di ricezione robusto
     while (total_received < total_to_receive) {
-        // Calcola quanto leggere per non sforare il buffer
         uint32_t to_read = (total_to_receive - total_received > SIZE - 1) 
                            ? SIZE - 1 
                            : total_to_receive - total_received;
@@ -280,31 +469,72 @@ void client_read_data(int sockfd, char *buffer) {
         ssize_t l = read(sockfd, file_buf, to_read);
         
         if (l <= 0) {
-            fprintf(stderr, "\nErrore: Connessione chiusa. Ricevuti %u/%u\n", total_received, total_to_receive);
+            fprintf(stderr, "\nErrore: Connection closed. Received %u/%u\n", total_received, total_to_receive);
             break;
         }
 
-        // 3. Gestione errori del server nel primo pezzo
         if (is_first_chunk) {
+            // --- CONTROLLO ERRORI ---
             if (strncmp(file_buf, "ERR_OFFSET", 10) == 0) {
                 printf(COLOR_RED "Errore: Offset non valido!\n" COLOR_RESET);
                 return;
             }
-            // Aggiungi qui il resto dei controlli ancora da aggiungere, (NO_OFF, US, ecc.)
+            if(strncmp(file_buf, "NO_OFF", 6)==0){
+            memset(file_buf, 0, SIZE);
+            printf(COLOR_RED "Error: Offset not inserted!\n" COLOR_RESET);
+            return;
+            }else if(strncmp(file_buf,"US",2)==0){
+            memset(file_buf, 0, SIZE);
+            printf(COLOR_YELLOW "Usage: read -offset=<num> <path>\n" COLOR_RESET);
+            return;
+            }else if(strncmp(file_buf, "EMPTY_OR_READ_ERROR", 19)==0){
+            memset(file_buf, 0, SIZE);
+            printf(COLOR_YELLOW"File empty.."COLOR_RESET COLOR_RED" ..or error while reading\n"COLOR_RESET);
+            return;
+            }else if(strncmp(file_buf, "ERROR_LOCKED", 12)==0){
+            memset(file_buf, 0, SIZE);
+            printf(COLOR_RED"File already in use!\n"COLOR_RESET);
+            return;
+            }else if(strncmp(file_buf, "ERR_OPEN", 8)==0){
+            memset(file_buf, 0, SIZE);
+            printf(COLOR_RED"Error opening file..\n"COLOR_RESET);
+            return;
+            }else if(strncmp(file_buf, "ERR_NOT_FOUND", 13)==0){
+            memset(file_buf, 0, SIZE);
+            printf(COLOR_RED"Path invalid or not found!\n"COLOR_RESET);
+            return;   
+            }else if(strncmp(file_buf, "ERROR_PARAM", 11)==0){
+            memset(file_buf, 0, SIZE);
+            printf(COLOR_YELLOW"Usage: read -offset=<num> <path>\n"COLOR_RESET);
+            return;   
+            }else if(strncmp(file_buf, "ERR_VIO", 7)==0){
+            memset(file_buf, 0, SIZE);
+            printf(COLOR_RED"Error: violation of the home\n"COLOR_RESET);
+            return;   
+            }else if(strncmp(file_buf, "ERR_VIO", 7) == 0) {
+                printf(COLOR_RED "Error: violation of the home\n" COLOR_RESET);
+                return;   
+            }else if(strncmp(file_buf, "Cannot read files while you are guest", 37) == 0) {
+                printf(COLOR_RED "Error: Cannot read files while you are guest\n" COLOR_RESET);
+                return;   
+            }
+            // SE SIAMO QUI, NON È UN ERRORE: Stampiamo l'intestazione
+            printf("Ricezione di %u byte...\n", total_to_receive);
+            printf(COLOR_MAGENTA"--- START FILE TRANSCRIPTION ---\n"COLOR_RESET);
+            header_printed = 1; 
             
             is_first_chunk = 0;
         }
 
-        
-        // Usiamo fwrite invece di fputs/printf perché fwrite non si ferma se trova uno '\0' 
-        // ed è perfetta per file di ogni tipo.
         fwrite(file_buf, 1, l, stdout);
-        fflush(stdout); // Forza l'uscita a video immediata
-
+        fflush(stdout);
         total_received += l;
     }
 
-    printf(COLOR_CIANO "\n--- FINE FILE (%u byte) ---\n" COLOR_RESET, total_received);
+    // Stampa il fine file solo se abbiamo effettivamente iniziato a scrivere il file
+    if (header_printed) {
+        printf(COLOR_CIANO "\n--- FINE FILE (%u byte) ---\n" COLOR_RESET, total_received);
+    }
 }
 
 
