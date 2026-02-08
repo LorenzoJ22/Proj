@@ -58,6 +58,7 @@ void session_init(Session *s, const char *root) {
     s->username[0] = '\0'; 
     s->current_dir[0] = '\0';
     s->home_dir[0] = '\0';
+    
 }
 
 int session_login(Session *s, const char *username) {
@@ -75,6 +76,7 @@ int session_login(Session *s, const char *username) {
         printf("Login failed: User '%s' does not exist or is not in the group '%s'\n", username, GROUP_NAME);
         return -1; // login failed
     }
+    //aggiunta controllo home se esiste
 
     // switch to the user's UID and GID
 

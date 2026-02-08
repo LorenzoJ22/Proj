@@ -19,7 +19,7 @@
 #include <arpa/inet.h>
 #include <sys/file.h>
 
-#define CHUNK_SIZE 4096
+#define SIZE 6000
 #include <sys/socket.h>
 
 
@@ -688,7 +688,9 @@ void write_client(int client_fd, char* buffer, Session *s){
         return;
     }
 
+// if(strlen(buffer) != 6){
 
+// }
     int is_set = 0; 
     char *args = buffer + 6;
     int num;
@@ -976,7 +978,151 @@ void upload (int client_fd, char* command_args, Session *s){
 
 
 
-    void read_client(int client_fd, char *buffer, Session *s){
+// void read_client(int client_fd, char *buffer, Session *s){
+//     if (!(s->logged_in)) {
+//         char msg[] = "Cannot list files while you are guest\n";
+//         write(client_fd, msg, strlen(msg));
+//         return;
+//     }
+
+//     int is_set = 0; 
+//     char *args = buffer + 5;
+//     int num=0;
+//     int consumed=0;
+    
+//     if (strncmp(args, "-offset ", 8) == 0) {
+//         printf("adding offset..\n");
+//         is_set = 1;      // We found the option!
+//         args += 8;       // Shift the pointer of three positions (hop " ")
+//         int i;
+//         if( (i=sscanf(args, "%d%n", &num, &consumed))==1){//%*[^0-9]%d  ---> hop all the non integer input , %n per contare
+//         args += consumed;
+//         // Now args point to the beginnig of the path
+//     }else{
+//         write(client_fd,"NO_OFF",6);
+//         printf("Fail to save num\n");
+//         return;
+//     }
+//         printf("args is: %s, cosumed instead:%d, readed %d\n", args, consumed, i);
+//     }else if(strncmp(args, "-offset", 7)==0) {
+//         write(client_fd,"US",2);
+//         printf("Fail to save off\n");
+//         return;
+//      }//else{
+//     //     write(client_fd,"OK",2);
+//     // }
+
+//     char path[64];
+//     memset(path, 0, sizeof(path)); 
+
+//     // 1. Parsing logic, and we add to args the number length and a space..
+//     if (sscanf(args, "%63s", path) != 1) {
+//         printf("Usage: read -offset=<num> <path>\n");
+//         return;
+//     }
+
+//     char full_path[PATH_MAX + 1000];
+
+//     if (realpath(path, full_path) == NULL) {
+//         dprintf(client_fd, COLOR_RED"Error: Destination directory not found or access denied (%s)\n"COLOR_RESET, strerror(errno));
+//         return;
+//     }
+            
+//     //check for home violation creation
+//     if(check_home_violation(full_path, client_fd, s)==-1) return;
+
+//     int file_fd;
+//     file_fd = open(full_path, O_RDONLY);
+    
+
+//     if (file_fd < 0) {
+//         dprintf(client_fd, COLOR_RED"Error creating/opening file '%s': %s\n"COLOR_RESET, full_path, strerror(errno));
+//         return;
+//     }
+         
+//     if(lock_commands(file_fd,client_fd,0,1)!=0){
+//             printf("Occupied, so return\n");
+//             return;
+//         }
+    
+
+//     char line_buf[6000];
+//     char line_control[2048];
+//     //With the offset, we have to insert the new strings without cancel the rest of file
+//     struct stat st;
+//     fstat(file_fd, &st);
+//     off_t size = st.st_size;
+//     snprintf(line_control, sizeof(line_control), "The size of file is :%ld, instead the offset is:%d error offset too long!", size, num);
+//     //write(client_fd, line_control, sizeof(line_control));
+//     //check if the offset length is longer than the file size.
+//     if(is_set && size < num){
+//         write(client_fd, "ERR_OFFSET", 10);
+//         printf("Ho inviato errore offs, esco dalla funzione read_client e torno nel while principale\n");
+//         //write(client_fd, line_control, sizeof(line_control));
+//         //dprintf(client_fd,COLOR_RED"Error: offset length too long!\n"COLOR_RESET);
+//         unlock(file_fd);
+//         close(file_fd);  
+//         return;
+//     }
+
+//     if(is_set){
+//     lseek(file_fd, num, SEEK_SET);
+//     }
+
+// /*invio solo quanto è grande il file tramite socket traducendo int*/
+//     long net_count = htonl((int)size);  
+//     write(client_fd, &net_count, sizeof(int));
+//     printf("SOno arrivato a scrivere htonl net_count=%ld\n", net_count);
+    
+//     int count = 0;
+//     ssize_t l;
+//     while((l = read(file_fd,line_buf, sizeof(line_buf)))!=EOF){
+//     count +=l;
+//     //ssize_t l = read(file_fd, line_buf, sizeof(line_buf));
+//     printf("Letto l da server: %ld\n", l);
+//     if(l<=0){
+//         //write(client_fd, "EMPTY_OR_READ_ERROR", 19);
+//         unlock(file_fd);
+//         close(file_fd);
+//         //return;
+//         break;
+//     }
+//     if (write(client_fd, line_buf, l) < 0) {
+//         dprintf(client_fd, "Error writing to file: %s\n", strerror(errno));
+//         unlock(file_fd);
+//         close(file_fd);
+//         //return;
+//         break;
+//     }
+//     memset(line_buf, 0, sizeof(line_buf));
+// }
+// printf("Il count nel server normale e': %d\n",count);
+// //int bytes_read = read(fd, buffer, SIZE); 
+// // Invia prima il numero di byte (4 byte dell'intero)
+//     // long net_count = htonl((int)count);  
+//     // write(client_fd, &net_count, sizeof(int));
+//     // printf("SOno arrivato a scrivere htonl net_count=%ld\n", net_count);
+//     // // Poi invia il contenuto
+//     // ssize_t w;
+//     // if ((w = write(client_fd, line_buf, count)) < 0) {
+//     //     dprintf(client_fd, "Error writing to file: %s\n", strerror(errno));
+//     //     unlock(file_fd);
+//     //     close(file_fd);
+//     //     return;
+//     // }
+    
+//     //printf("Byte scritti sul cli %ld\n",w);
+//         //sleep(9);
+//         //send_prompt(client_fd,s);
+//     printf("At the end of write from server\n");
+//     //lseek(file_fd, 0, SEEK_SET);
+//     unlock(file_fd);
+//     printf("File unlock from read server\n");
+//     close(file_fd);
+    
+//     }
+
+void read_client(int client_fd, char *buffer, Session *s) {
     if (!(s->logged_in)) {
         char msg[] = "Cannot list files while you are guest\n";
         write(client_fd, msg, strlen(msg));
@@ -985,113 +1131,104 @@ void upload (int client_fd, char* command_args, Session *s){
 
     int is_set = 0; 
     char *args = buffer + 5;
-    int num=0;
-    int consumed=0;
+    int num = 0;
+    int consumed = 0;
     
+    // Gestione Offset
     if (strncmp(args, "-offset ", 8) == 0) {
-        printf("adding offset..\n");
-        is_set = 1;      // We found the option!
-        args += 8;       // Shift the pointer of three positions (hop " ")
-        int i;
-        if( (i=sscanf(args, "%d%n", &num, &consumed))==1){//%*[^0-9]%d  ---> hop all the non integer input , %n per contare
-        args += consumed;
-        // Now args point to the beginnig of the path
-    }else{
-        write(client_fd,"NO_OFF",6);
-        printf("Fail to save num\n");
+        is_set = 1;
+        args += 8;
+        if (sscanf(args, "%d%n", &num, &consumed) == 1) {
+            args += consumed;
+        } else {
+            uint32_t err_size = htonl(2);
+            write(client_fd, &err_size, sizeof(uint32_t));
+            write(client_fd, "US", 2);
+            return;
+        }
+    } else if (strncmp(args, "-offset", 7) == 0) {
+        uint32_t err_size = htonl(2);
+        write(client_fd, &err_size, sizeof(uint32_t));
+        write(client_fd, "US", 2);
         return;
     }
-        printf("args is: %s, cosumed instead:%d, readed %d\n", args, consumed, i);
-    }else if(strncmp(args, "-offset", 7)==0) {
-        write(client_fd,"US",2);
-        printf("Fail to save off\n");
-        return;
-     }//else{
-    //     write(client_fd,"OK",2);
-    // }
 
     char path[64];
     memset(path, 0, sizeof(path)); 
-
-    // 1. Parsing logic, and we add to args the number length and a space..
     if (sscanf(args, "%63s", path) != 1) {
-        printf("Usage: read -offset=<num> <path>\n");
+        // Errore silenzioso o log lato server
         return;
     }
 
-    char full_path[PATH_MAX + 1000];
-
+    char full_path[PATH_MAX];
     if (realpath(path, full_path) == NULL) {
-        dprintf(client_fd, COLOR_RED"Error: Destination directory not found or access denied (%s)\n"COLOR_RESET, strerror(errno));
+        // Se il file non esiste, avvisa il client
+        char *err_msg = "ERR_NOT_FOUND";
+        uint32_t err_size = htonl(strlen(err_msg));
+        write(client_fd, &err_size, sizeof(uint32_t));
+        write(client_fd, err_msg, strlen(err_msg));
         return;
     }
             
-    //check for home violation creation
-    if(check_home_violation(full_path, client_fd, s)==-1) return;
+    if (check_home_violation(full_path, client_fd, s) == -1) return;
 
-    int file_fd;
-    file_fd = open(full_path, O_RDONLY);
-    
-
+    int file_fd = open(full_path, O_RDONLY);
     if (file_fd < 0) {
-        dprintf(client_fd, COLOR_RED"Error creating/opening file '%s': %s\n"COLOR_RESET, full_path, strerror(errno));
+        char *err_msg = "ERR_OPEN";
+        uint32_t err_size = htonl(strlen(err_msg));
+        write(client_fd, &err_size, sizeof(uint32_t));
+        write(client_fd, err_msg, strlen(err_msg));
         return;
     }
          
-    if(lock_commands(file_fd,client_fd,0,1)!=0){
-            printf("Occupied, so return\n");
-            return;
-        }
-    
+    if (lock_commands(file_fd, client_fd, 0, 1) != 0) {
+        char *err_msg = "ERROR_LOCKED";
+        uint32_t err_size = htonl(strlen(err_msg));
+        write(client_fd, &err_size, sizeof(uint32_t));
+        write(client_fd, err_msg, strlen(err_msg));
+        close(file_fd);
+        return;
+    }
 
-    char line_buf[2048];
-    char line_control[2048];
-    //With the offset, we have to insert the new strings without cancel the rest of file
     struct stat st;
     fstat(file_fd, &st);
-    off_t size = st.st_size;
-    snprintf(line_control, sizeof(line_control), "The size of file is :%ld, instead the offset is:%d error offset too long!", size, num);
-    //write(client_fd, line_control, sizeof(line_control));
-    //check if the offset length is longer than the file size.
-    if(size < num){
-        write(client_fd, "ERR_OFFSET", 10);
-        printf("Ho inviato errore offs, esco dalla funzione read_client e torno nel while principale\n");
-        //write(client_fd, line_control, sizeof(line_control));
-        //dprintf(client_fd,COLOR_RED"Error: offset length too long!\n"COLOR_RESET);
+    off_t file_size = st.st_size;
+
+    // Controllo Offset troppo grande
+    if (is_set && file_size < num) {
+        char *err_msg = "ERR_OFFSET";
+        uint32_t err_size = htonl(strlen(err_msg));
+        write(client_fd, &err_size, sizeof(uint32_t));
+        write(client_fd, err_msg, strlen(err_msg));
         unlock(file_fd);
         close(file_fd);  
         return;
     }
 
-    if(is_set){
-    lseek(file_fd, num, SEEK_SET);
-    }
-
-    ssize_t l = read(file_fd, line_buf, sizeof(line_buf));
-    printf("Letto l da server: %ld\n", l);
-    if(l<=0){
-        write(client_fd, "EMPTY_OR_READ_ERROR", 19);
-        unlock(file_fd);
-        close(file_fd);
-        return;
-    }
-
-    if (write(client_fd, line_buf, l) < 0) {
-        dprintf(client_fd, "Error writing to file: %s\n", strerror(errno));
-        unlock(file_fd);
-        close(file_fd);
-        return;
-        }
-
-        sleep(9);
-        //send_prompt(client_fd,s);
-    printf("At the end of write from server\n");
-    lseek(file_fd, 0, SEEK_SET);
-    unlock(file_fd);
-    printf("File unlock from read server\n");
-    close(file_fd);
+    // Calcolo quanti byte effettivamente invieremo
+    uint32_t effective_size = (is_set) ? (file_size - num) : file_size;
+    uint32_t net_count = htonl(effective_size);
     
+    // 1. Invia la dimensione totale che il client deve aspettarsi
+    write(client_fd, &net_count, sizeof(uint32_t));
+
+    if (is_set) {
+        lseek(file_fd, num, SEEK_SET);
     }
+
+    // 2. Invio del contenuto a pezzi
+    char line_buf[SIZE]; 
+    ssize_t l;
+    while ((l = read(file_fd, line_buf, sizeof(line_buf))) > 0) {
+        if (write(client_fd, line_buf, l) < 0) {
+            break;
+        }
+    }
+
+    printf("Inviati %u byte al client.\n", effective_size);
+    unlock(file_fd);
+    close(file_fd);
+}
     
     
 void download(int client_fd, char* command_args, Session *s){

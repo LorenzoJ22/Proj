@@ -7,7 +7,7 @@
 #include "network.h"
 #include "values.h"
 
-#define SIZE 2048
+#define SIZE 6000
 
 
 void client_write_data(int sockfd, char *buffer) {
@@ -96,62 +96,216 @@ void client_write_data(int sockfd, char *buffer) {
     // ...incontrerà receive_message() che leggerà "File salvato correttamente".
 }
 
-void client_read_data(int sockfd,char *buffer) {
-    char file_buf[SIZE];
 
-    char path[64];
-    if (sscanf(buffer+5, "%63s", path) != 1) {
-        printf(COLOR_YELLOW"Usage: read -offset=<num> <path>\n"COLOR_RESET);
-        return;
-    }
-    //write_client(sockfd, buffer);
-    // char err[64];
-    // ssize_t g =read()
-    char *data_to_print = file_buf;
-    memset(file_buf, 0, SIZE);
-    ssize_t l = read(sockfd, file_buf, SIZE-1);
-    //printf("Letto da client: %ld\n", l);
-    if(l<=0){return;}
-    file_buf[l] = '\0'; // Assicura che la stringa sia terminata
-    // 2. Controllo degli errori basato sul messaggio del server
-     if (strncmp(file_buf, "ERR_OFFSET", 10) == 0) {
-        memset(file_buf, 0, SIZE);
-        printf(COLOR_RED "Error: Offset not valid (too big for the file size)!\n" COLOR_RESET);
-        return;
-    }else if(strncmp(file_buf, "NO_OFF", 6)==0){
-        memset(file_buf, 0, SIZE);
-        printf(COLOR_RED "Error: Offset not inserted!\n" COLOR_RESET);
-        return;
-    }else if(strncmp(file_buf,"US",2)==0){
-        memset(file_buf, 0, SIZE);
-        printf(COLOR_YELLOW "Usage: read -offset=<num> <path>\n" COLOR_RESET);
-        return;
-    }else if(strncmp(file_buf, "EMPTY_OR_READ_ERROR", 19)==0){
-        memset(file_buf, 0, SIZE);
-        printf(COLOR_YELLOW"File empty.."COLOR_RESET COLOR_RED" ..or error while reading\n"COLOR_RESET);
-        return;
-    }else if(strncmp(file_buf, "ERROR_LOCKED", 12)==0){
-        memset(file_buf, 0, SIZE);
-        printf(COLOR_RED"File already in use!\n"COLOR_RESET);
-        return;
-    }else if(strncmp(file_buf, "OK", 2)==0){
-        data_to_print += 2;
-        printf("We are ready to read\n");
-    }
 
-    // Leggo da tastiera
-    printf(COLOR_MAGENTA"--- START FILE TRANSCRIPTION---\n"COLOR_RESET);
-    printf(COLOR_CIANO"FROM CLIENT: THIS IS THE CONTENT OF THE FILE.\n"COLOR_RESET);
-    if (fputs(data_to_print, stdout) == EOF){
-        printf("Read to stdout failed.\n");
-        return;
-    }
-  
-    sleep(10);
+// void client_read_data(int sockfd,char *buffer) {
+//     char file_buf[SIZE];
+
+//     char path[64];
+//     if (sscanf(buffer+5, "%63s", path) != 1) {
+//         printf(COLOR_YELLOW"Usage: read -offset=<num> <path>\n"COLOR_RESET);
+//         return;
+//     }
    
-    printf(COLOR_CIANO"---FROM CLIENT: FINISH TO SHOW FILE... ---\n"COLOR_RESET);
-}
+//     char *data_to_print = file_buf;
+//     memset(file_buf, 0, SIZE);
+    
+//     long network_count =0;
+//     ssize_t l;
+//     if (read(sockfd, &network_count, sizeof(int)) <= 0) {
+//         perror("Errore lettura count");
+//         return;
+//     }
+//     printf("Net_count %ld\n",network_count);
+//     int count = ntohl(network_count);
+//     printf("Il server invierà %d byte\n", count);
+
+//     if (count <= 0) {
+//         // Gestisci errore o file vuoto qui
+//         printf("EMPty?\n");
+//         return;
+//     }
+
+//     // 2. Leggi il contenuto basandoti su 'count'
+//     // Nota: Usiamo un ciclo per assicurarci di leggere TUTTI i byte promessi
+//     int total_received = 0;
+    
+//     while (total_received < count) {
+//         l = read(sockfd, file_buf + total_received, count - total_received);
+//         printf(COLOR_MAGENTA"Ho preso dal socket %ld\n"COLOR_RESET,l);
+//         if (l <= 0) break;
+//         if (fputs(file_buf, stdout)){
+//             printf("Read to stdout failed.\n");
+//             return;
+//         }
+//         printf(COLOR_MAGENTA"Total received adesso e' : %d\n"COLOR_RESET,total_received);
+//         total_received += l;
+//         memset(file_buf, 0, SIZE);
+//     }
+// // l= read(sockfd, file_buf, count);
+
+    
+//     // while (total_received < count) {
+//     //     l = read(sockfd, file_buf + total_received, count - total_received);
+//     //     printf("Received total_rec %d\n",total_received);
+//     //     if (l <= 0) break;
+//     //     total_received += l;
+//     // }
+     
+//     //ssize_t l= read(sockfd, file_buf, SIZE-1);
+//     // l=read(sockfd, file_buf, l);
+//     // //printf("Letto da client: %ld\n", l);
+//     // if(l<=0){return;}
+//     file_buf[l] = '\0'; // Assicura che la stringa sia terminata
+//     // 2. Controllo degli errori basato sul messaggio del server
+//      if (strncmp(file_buf, "ERR_OFFSET", 10) == 0) {
+//         memset(file_buf, 0, SIZE);
+//         printf(COLOR_RED "Error: Offset not valid (too big for the file size)!\n" COLOR_RESET);
+//         return;
+//     }else if(strncmp(file_buf, "NO_OFF", 6)==0){
+//         memset(file_buf, 0, SIZE);
+//         printf(COLOR_RED "Error: Offset not inserted!\n" COLOR_RESET);
+//         return;
+//     }else if(strncmp(file_buf,"US",2)==0){
+//         memset(file_buf, 0, SIZE);
+//         printf(COLOR_YELLOW "Usage: read -offset=<num> <path>\n" COLOR_RESET);
+//         return;
+//     }else if(strncmp(file_buf, "EMPTY_OR_READ_ERROR", 19)==0){
+//         memset(file_buf, 0, SIZE);
+//         printf(COLOR_YELLOW"File empty.."COLOR_RESET COLOR_RED" ..or error while reading\n"COLOR_RESET);
+//         return;
+//     }else if(strncmp(file_buf, "ERROR_LOCKED", 12)==0){
+//         memset(file_buf, 0, SIZE);
+//         printf(COLOR_RED"File already in use!\n"COLOR_RESET);
+//         return;
+//     }else if(strncmp(file_buf, "OK", 2)==0){
+//         data_to_print += 2;
+//         printf("We are ready to read\n");
+//     }
+
+//     // Leggo da tastiera
+//     // printf(COLOR_MAGENTA"--- START FILE TRANSCRIPTION---\n"COLOR_RESET);
+//     // printf(COLOR_CIANO"FROM CLIENT: THIS IS THE CONTENT OF THE FILE.\n"COLOR_RESET);
+//     // if (fputs(data_to_print, stdout) == EOF){
+//     //     printf("Read to stdout failed.\n");
+//     //     return;
+//     // }
   
+//     // //sleep(10);
+   
+//     printf(COLOR_CIANO"---FROM CLIENT: FINISH TO SHOW FILE... ---\n"COLOR_RESET);
+// }
+  
+// void client_read_data(int sockfd, char *buffer) {
+//     char file_buf[SIZE]; // SIZE può essere 4096 o quello che preferisci
+//     char path[64];
+    
+//     if (sscanf(buffer + 5, "%63s", path) != 1) {
+//         printf(COLOR_YELLOW"Usage: read -offset=<num> <path>\n"COLOR_RESET);
+//         return;
+//     }
+
+//     uint32_t network_count = 0;
+//     if (read(sockfd, &network_count, sizeof(uint32_t)) <= 0) {
+//         perror("Errore lettura count");
+//         return;
+//     }
+
+//     int count = ntohl(network_count);
+//     printf("Il server invierà %d byte\n", count);
+
+//     if (count <= 0) return;
+
+//     printf(COLOR_MAGENTA"--- START FILE TRANSCRIPTION ---\n"COLOR_RESET);
+
+//     int total_received = 0;
+//     while (total_received < count) {
+//         // Leggiamo al massimo SIZE-1 per lasciare spazio allo zero terminale se serve
+//         int da_leggere = (count - total_received > SIZE - 1) ? SIZE - 1 : count - total_received;
+        
+//         ssize_t l = read(sockfd, file_buf, da_leggere);
+        
+//         if (l <= 0) {
+//             perror("Connessione interrotta durante la ricezione");
+//             break;
+//         }
+
+//         // Aggiungiamo il terminatore per poter usare printf/fputs in sicurezza
+//         file_buf[l] = '\0';
+        
+//         // Gestione messaggi di errore (solo sul primo blocco ricevuto)
+//         if (total_received == 0) {
+//             if (strncmp(file_buf, "ERR_OFFSET", 10) == 0) { 
+//                  return; 
+//                 }
+//             if (strncmp(file_buf, "OK", 2) == 0) {
+//                 // Se c'è "OK", stampiamo solo quello che viene dopo
+//                 fputs(file_buf + 2, stdout);
+//             } else {
+//                 fputs(file_buf, stdout);
+//             }
+//         } else {
+//             // Blocchi successivi: stampa tutto
+//             fputs(file_buf, stdout);
+//         }
+
+//         total_received += l;
+//     }
+    
+//     printf(COLOR_CIANO"\n--- FINISH TO SHOW FILE ---\n"COLOR_RESET);
+// }
+void client_read_data(int sockfd, char *buffer) {
+    char file_buf[SIZE];
+    uint32_t net_count = 0;
+
+    // 1. Leggi il numero di byte totali
+    if (read(sockfd, &net_count, sizeof(uint32_t)) <= 0) {
+        perror("Errore lettura dimensione");
+        return;
+    }
+
+    uint32_t total_to_receive = ntohl(net_count);
+    uint32_t total_received = 0;
+    int is_first_chunk = 1;
+
+    printf("Ricezione di %u byte...\n", total_to_receive);
+
+    // 2. Loop di ricezione robusto
+    while (total_received < total_to_receive) {
+        // Calcola quanto leggere per non sforare il buffer
+        uint32_t to_read = (total_to_receive - total_received > SIZE - 1) 
+                           ? SIZE - 1 
+                           : total_to_receive - total_received;
+
+        ssize_t l = read(sockfd, file_buf, to_read);
+        
+        if (l <= 0) {
+            fprintf(stderr, "\nErrore: Connessione chiusa. Ricevuti %u/%u\n", total_received, total_to_receive);
+            break;
+        }
+
+        // 3. Gestione errori del server nel primo pezzo
+        if (is_first_chunk) {
+            if (strncmp(file_buf, "ERR_OFFSET", 10) == 0) {
+                printf(COLOR_RED "Errore: Offset non valido!\n" COLOR_RESET);
+                return;
+            }
+            // Aggiungi qui il resto dei controlli ancora da aggiungere, (NO_OFF, US, ecc.)
+            
+            is_first_chunk = 0;
+        }
+
+        
+        // Usiamo fwrite invece di fputs/printf perché fwrite non si ferma se trova uno '\0' 
+        // ed è perfetta per file di ogni tipo.
+        fwrite(file_buf, 1, l, stdout);
+        fflush(stdout); // Forza l'uscita a video immediata
+
+        total_received += l;
+    }
+
+    printf(COLOR_CIANO "\n--- FINE FILE (%u byte) ---\n" COLOR_RESET, total_received);
+}
 
 
 void client_upload(int sockfd, char* buffer, char* ip, int port, char* current_username){
