@@ -905,9 +905,8 @@ void upload (int client_fd, char* command_args, Session *s){
         return;
     }
 
-    char final_safe_path[PATH_MAX];
 
-    if (resolve_safe_create_path(filepath, client_fd, s, final_safe_path) == -1) {
+    if (resolve_safe_create_path(filepath, client_fd, s) == -1) {
         return;
     }
 
@@ -918,6 +917,17 @@ void upload (int client_fd, char* command_args, Session *s){
         perror("File creation failed");
         char *msg = "ERROR: Cannot create file on server.\n";
         send(client_fd, msg, strlen(msg), 0);
+        return;
+    }
+
+    int fd = fileno(fp); 
+
+    if (flock(fd, LOCK_EX | LOCK_NB) != 0) {
+        printf(COLOR_RED "[SERVER] File unavailable.\n" COLOR_RESET);
+
+        char err_msg[] = "ERROR: File is locked by another user.\n";
+        send(client_fd, err_msg, strlen(err_msg), 0);
+        fclose(fp);
         return;
     }
 
@@ -945,7 +955,7 @@ void upload (int client_fd, char* command_args, Session *s){
         total_received += bytes_received;
         printf("\r[Server] Received: %ld / %ld \n", total_received, filesize);
     }
-    
+    sleep(10);
     fflush(fp);
     fclose(fp);
 
@@ -1097,8 +1107,8 @@ void download(int client_fd, char* command_args, Session *s){
         return;
     }
 
-    char final_safe_path[PATH_MAX];
-    if (resolve_safe_create_path(filepath, client_fd, s, final_safe_path) == -1) {
+    
+    if (resolve_safe_create_path(filepath, client_fd, s) == -1) {
         return;
     }
 
@@ -1110,10 +1120,11 @@ void download(int client_fd, char* command_args, Session *s){
         return;
     }
    
+
     int fd = fileno(fp);
     if(flock(fd, LOCK_SH | LOCK_NB) != 0) {
         printf("Cannot open file, already locked.\n");
-        char *msg = "ERROR: Cannot lock file on server.\n";
+        char *msg = COLOR_RED"ERROR: Cannot lock file on server.\n"COLOR_RESET;
         send_message(client_fd, msg);
         fclose(fp);
         return;
@@ -1139,7 +1150,7 @@ void download(int client_fd, char* command_args, Session *s){
     
 
     char data_buffer[BUFFER_SIZE];
-    size_t bytes_read;
+    
     size_t bytes_sent = 0;
 
     
@@ -1151,7 +1162,7 @@ void download(int client_fd, char* command_args, Session *s){
                 printf("\r[Client] Send: %ld byte...", bytes_sent);
             }
     }
-    
+    sleep(10);
     fclose(fp);
     printf("Waiting for server confirmation...\n");
 
@@ -1166,5 +1177,7 @@ void download(int client_fd, char* command_args, Session *s){
             printf("Server error: %s\n", ack);
         }
     }
+
+    //unlock(fd);
     
 }

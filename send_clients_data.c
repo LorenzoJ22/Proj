@@ -199,6 +199,7 @@ void client_upload(int sockfd, char* buffer, char* ip, int port, char* current_u
 
     if (token == NULL) {
         printf("Uso: upload [-b] <local_path> <server_path>\n");
+        send_message(sockfd, "");
         return;
     }
 
@@ -222,6 +223,7 @@ void client_upload(int sockfd, char* buffer, char* ip, int port, char* current_u
     if (local_path == NULL || remote_path == NULL) {
         printf("Error: Missing arguments.\n");
         printf("Usage: upload [-b] <local_path> <server_path>\n");
+        send_message(sockfd, "");
         return;
     }
 
@@ -242,6 +244,7 @@ void client_download(int sockfd, char* buffer, char* ip, int port, char* current
 
                 if (token == NULL) {
                     printf("Uso: download [-b] <server_path> <local_path>\n");
+                    send_message(sockfd, "");
                     return;
                 }
 
@@ -264,6 +267,7 @@ void client_download(int sockfd, char* buffer, char* ip, int port, char* current
     if (local_path == NULL || remote_path == NULL) {
         printf("Error: Missing arguments.\n");
         printf("Usage: download [-b] <server_path> <local_path>\n");
+        send_message(sockfd, "");
         return;
     }
 

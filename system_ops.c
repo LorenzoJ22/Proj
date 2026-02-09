@@ -274,6 +274,7 @@ int check_home_violation_r(char* resolved_path, int client_fd, Session *s){
 //function that take in input an absolute path with filename not yet created, 
 //so we disconnect the parent dir from the filename and then we add it again at the end, to check the realpath and violation 
 int resolve_safe_create_path(char *raw_input, int client_fd, Session *s, char *final_path_out) {
+int resolve_safe_create_path(char *raw_input, int client_fd, Session *s) {
     char parent_dir[PATH_MAX];
     char filename_part[64];
     char resolved_parent[PATH_MAX];

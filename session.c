@@ -16,7 +16,7 @@
 
 
 
-int check_user_login(const char *username, const char *groupname ){
+int check_user_login(const char *username, const char *groupname, Session *s) {
 
     struct group *grp = getgrnam(groupname);
     gid_t target_gid = grp->gr_gid;
@@ -46,8 +46,23 @@ int check_user_login(const char *username, const char *groupname ){
         }
     }
 
+
+    struct stat path_stat;
+    char home_path[PATH_MAX];
+    snprintf(home_path, sizeof(home_path), "%s/%s", s->root_dir, username);
+    int home_dir_exists = 0;
+
+    if (stat(home_path, &path_stat) != 0) {
+        return 0; // directory does not exist
+    }
+
+    if (S_ISDIR(path_stat.st_mode)) {
+        home_dir_exists = 1; // it's a directory
+    }
+
+
     free(groups);
-    return found;
+    return found && home_dir_exists;
 }
 
 
@@ -59,6 +74,7 @@ void session_init(Session *s, const char *root) {
     s->current_dir[0] = '\0';
     s->home_dir[0] = '\0';
     
+    //chdir(s->root_dir); // set current working directory to root directory
 }
 
 int session_login(Session *s, const char *username) {
@@ -72,7 +88,7 @@ int session_login(Session *s, const char *username) {
 
     struct passwd *user = getpwnam(username);
 
-    if (!check_user_login(username, GROUP_NAME)) {
+    if (!check_user_login(username, GROUP_NAME, s)) {
         printf("Login failed: User '%s' does not exist or is not in the group '%s'\n", username, GROUP_NAME);
         return -1; // login failed
     }
