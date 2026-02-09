@@ -208,6 +208,7 @@ void client_download(int sockfd, char* buffer, char* ip, int port, char* current
 
                 if (token == NULL) {
                     printf("Uso: download [-b] <server_path> <local_path>\n");
+                    send_message(sockfd, "");
                     return;
                 }
 

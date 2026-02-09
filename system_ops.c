@@ -309,7 +309,7 @@ int check_home_violation(char* resolved_path, int client_fd, Session *s){
 
 
 
-int resolve_safe_create_path(char *raw_input, int client_fd, Session *s, char *final_path_out) {
+int resolve_safe_create_path(char *raw_input, int client_fd, Session *s) {
     char parent_dir[PATH_MAX];
     char filename_part[64];
     char resolved_parent[PATH_MAX];
@@ -362,11 +362,6 @@ int resolve_safe_create_path(char *raw_input, int client_fd, Session *s, char *f
         return -1;
     }
 
-    // --- LOGICA DEL COLLEGA (Fine) ---
-
-    // 5. Costruzione path finale (Se siamo qui, è tutto sicuro)
-    snprintf(final_path_out, PATH_MAX+1000, "%s/%s", resolved_parent, filename_part);
-    
     return 0; // Successo
 }
 

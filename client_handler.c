@@ -69,9 +69,9 @@ void handle_client(int client_fd, const char *root_dir) {
         printf("[DEBUG] Buffer pulito: '%s' (lunghezza: %lu)\n", buffer, strlen(buffer));
 
          if (strlen(buffer) == 0) {
-            dprintf(client_fd,"Void space: '%s'\n", buffer);
-            char b[PATH_MAX];
-            dprintf(client_fd, "Current directory: %s\n",getcwd(b,PATH_MAX));
+            // //dprintf(client_fd,"Void space: '%s'\n", buffer);
+            // char b[PATH_MAX];
+            // dprintf(client_fd, "Current directory: %s\n",getcwd(b,PATH_MAX));
             continue; 
         } 
 
