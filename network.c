@@ -107,9 +107,14 @@ int receive_message(int sockfd, char *buffer, int size) {
 }
 
 int perform_upload_logic(int sockfd, const char *local_path, const char *remote_path){
-    FILE *fp = fopen(local_path, "rb");
+
+
+        char final_remote_path[PATH_MAX];
+    
+        FILE *fp = fopen(local_path, "rb");
         if (fp == NULL ) {
             perror("File open error");
+            send_message(sockfd, "");
             return -1;
         }
 
@@ -117,8 +122,24 @@ int perform_upload_logic(int sockfd, const char *local_path, const char *remote_
         long filesize = ftell (fp);
         fseek (fp, 0, SEEK_SET);
 
+        const char *filename;
+
+        if (remote_path[strlen(remote_path) - 1] == '/') {
+            // Se remote_path finisce con '/', lo trattiamo come una directory e aggiungiamo il nome del file
+                filename = strrchr(local_path, '/');
+                if (filename == NULL) {
+                    filename = local_path; // Non c'è slash, è già il nome file
+                } else {
+                    filename++; // Saltiamo lo slash per prendere il nome
+                }
+
+                snprintf(final_remote_path, sizeof(final_remote_path), "%s%s", remote_path, filename);
+        } else {
+            snprintf(final_remote_path, sizeof(final_remote_path), "%s", remote_path);
+        }
+
         char command[BUFFER_SIZE];
-        snprintf(command, sizeof(command), "upload %s %ld", remote_path, filesize);
+        snprintf(command, sizeof(command), "upload %s %ld", final_remote_path, filesize);
 
         send_message(sockfd, command);
 
@@ -180,6 +201,7 @@ void upload_file (int sockfd, const char *local_path, const char *remote_path, i
         if (pid > 0) {
             // Parent process
             printf("Upload started in background with PID %d\n", pid);
+            send_message(sockfd, "");
             return;
         }
 
@@ -254,6 +276,7 @@ int perform_download_logic(int sockfd, const char *remote_path, const char *loca
     if (strncmp(server_reply, "SIZE ", 5) != 0) {
 
         fprintf(stderr, "Server denied download: %s\n", server_reply);
+        send_message(sockfd, "");
         return -1;
     }
 
@@ -262,7 +285,24 @@ int perform_download_logic(int sockfd, const char *remote_path, const char *loca
 
     send_message(sockfd, "READY");
 
-    FILE *fp = fopen(local_path, "wb");
+    char final_local_path[PATH_MAX];
+    const char *filename;
+
+        if (local_path[strlen(local_path) - 1] == '/') {
+            // Se local_path finisce con '/', lo trattiamo come una directory e aggiungiamo il nome del file
+                filename = strrchr(remote_path, '/');
+                if (filename == NULL) {
+                    filename = remote_path; // Non c'è slash, è già il nome file
+                } else {
+                    filename++; // Saltiamo lo slash per prendere il nome
+                }
+
+                snprintf(final_local_path, sizeof(final_local_path), "%s%s", local_path, filename);
+        } else {
+            snprintf(final_local_path, sizeof(final_local_path), "%s", local_path);
+        }
+
+    FILE *fp = fopen(final_local_path, "wb");
 
     if (fp == NULL ) {
         perror("File creation error");
@@ -309,7 +349,7 @@ int perform_download_logic(int sockfd, const char *remote_path, const char *loca
     printf("\nDownload completed. Sending confirmation to server...\n");
 
 
-    printf(COLOR_GREEN"File downloaded successfully: %s\n"COLOR_RESET, local_path);
+    printf(COLOR_GREEN"File downloaded successfully: %s\n"COLOR_RESET, final_local_path);
     return 0;
 }
 
@@ -327,6 +367,7 @@ void download_file(int sockfd, const char *remote_path, const char *local_path, 
         if (pid > 0) {
             // Parent process
             printf("Download started in background with PID %d\n", pid);
+            send_message(sockfd, "");
             return;
         }
 
