@@ -4,6 +4,7 @@
 #include "values.h"
 #include "permissions.h"
 #include "network.h"
+#include "shared.h"
 
 #include <errno.h>
 #include <unistd.h>
@@ -23,7 +24,7 @@
 #include <sys/socket.h>
 
 
-void login( char *buffer, int client_fd, Session *s){
+void login( char *buffer, int client_fd, Session *s, SharedMemory *shm){
     
             
              // send login result to client
@@ -41,7 +42,8 @@ void login( char *buffer, int client_fd, Session *s){
                 chdir(curr);
                 dprintf(client_fd,"Cur dopo ch login: %s\n", getcwd(cwd, PATH_MAX));
                 
-                //send_prompt(client_fd, s);
+                register_user(shm, username);
+                
             } 
             else
              if (login_result == -2) {
@@ -116,13 +118,6 @@ int check_abs_rel_path(char *raw_path, int client_fd){
             return -1;
         }
     }
-
-
-
-
-
-
-
 
 
 
@@ -649,10 +644,6 @@ void delete(int client_fd, char* buffer, Session *s){
 
 
 
-
-
-
-
 void write_client(int client_fd, char* buffer, Session *s){
     if (!(s->logged_in)) {
         char msg[] = "Cannot list files while you are guest\n";
@@ -941,13 +932,6 @@ void upload (int client_fd, char* command_args, Session *s){
 }
 
 
-
-
-
-
-
-
-
     void read_client(int client_fd, char *buffer, Session *s){
     if (!(s->logged_in)) {
         char msg[] = "Cannot list files while you are guest\n";
@@ -1095,17 +1079,7 @@ void download(int client_fd, char* command_args, Session *s){
         send_message(client_fd, msg);
         return;
     }
-    int fd = fileno(fp);
 
-    /*da finire manca la unlock*/
-    if (flock(fd, LOCK_EX | LOCK_NB) == -1) {
-        // Se arriviamo qui, un altro client ha il lock
-        printf("Blocco nel download\n");
-        send(fd, "ERROR_LOCKED", 12, 0);
-        fclose(fp);
-        return;
-    }
-    printf("File bloccato con successo\n");
 
     int fd = fileno(fp);
     if(flock(fd, LOCK_SH | LOCK_NB) != 0) {
@@ -1136,7 +1110,6 @@ void download(int client_fd, char* command_args, Session *s){
     
 
     char data_buffer[BUFFER_SIZE];
-    size_t bytes_read;
     size_t bytes_sent = 0;
 
     

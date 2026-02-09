@@ -14,6 +14,7 @@
 #include <errno.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include "shared.h"
 
 
 void sigchld_handler(int s) {
@@ -48,7 +49,7 @@ void send_prompt(int client_fd, Session *s) {
 }
 
 
-void handle_client(int client_fd, const char *root_dir) {
+void handle_client(int client_fd, const char *root_dir, SharedMemory *shm) {
 
     Session s;
     session_init(&s, root_dir);
@@ -64,7 +65,10 @@ void handle_client(int client_fd, const char *root_dir) {
         memset(buffer, 0, sizeof(buffer)); // clear buffer
         send_prompt(client_fd, &s);
         int n = read(client_fd, buffer, sizeof(buffer)-1);
-        if (n <= 0) break; // connection closed or error
+        if (n <= 0) {
+            unregister_user(shm, s.username);
+            break; // connection closed or error
+        }
         printf("[FIGLIO %d] Messaggio ricevuto: %s\n", getpid(), buffer);
         printf("[DEBUG] Buffer pulito: '%s' (lunghezza: %lu)\n", buffer, strlen(buffer));
 
@@ -77,7 +81,7 @@ void handle_client(int client_fd, const char *root_dir) {
 
         // login command
         if (strncmp(buffer, "login ", 6) == 0) {
-            login(buffer, client_fd, &s);
+            login(buffer, client_fd, &s, shm);
             continue;
         }
         
@@ -155,26 +159,11 @@ void handle_client(int client_fd, const char *root_dir) {
         char msg[] = "Unknown command \n";
         write(client_fd, msg, strlen(msg));
         
-        //dprintf(client_fd,"The input was buffer = '%s'\n", buffer);
-        /* char terminator = '\0'; 
-        write(client_fd, &terminator, 1); */
-        //memset(buffer, 0, sizeof(buffer));
-        //send_prompt(client_fd, &s);
 
         
     }
 
-    
-
-    // read message
-    int n = read(client_fd, buffer, sizeof(buffer));
-    if (n > 0) {
-        printf("[FIGLIO %d] Messaggio ricevuto da fine: %s\n", getpid(), buffer);
-    }
-
-    // send response
-    char response[] = "Ciao dal server!";
-    write(client_fd, response, strlen(response) + 1);
+ 
 
     close(client_fd);
 }

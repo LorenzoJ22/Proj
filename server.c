@@ -18,6 +18,7 @@
 #include "permissions.h"
 #include "system_ops.h"
 #include "values.h"
+#include "shared.h"
 
 
 
@@ -64,6 +65,25 @@ int main (int argc, char *argv[]) {
         perror("sigaction");
         exit(1);
     }
+
+    // Create shared memory
+    int shm_id = shmget(SHM_KEY, sizeof(SharedMemory), IPC_CREAT | 0666);
+    
+    if (shm_id < 0) {
+        perror("shmget");
+        exit(1);
+    }
+
+    SharedMemory *shm = (SharedMemory *)shmat(shm_id, NULL, 0);
+    if (shm == (SharedMemory *) -1) {
+        perror("shmat");
+        exit(1);
+    }
+
+
+
+    memset(shm, 0, sizeof(SharedMemory));
+    shm->global_id_counter = 1;
 
     while(1){
 
@@ -124,7 +144,7 @@ int main (int argc, char *argv[]) {
             if (pid == 0) {
                 // Child process
                 close(server_fd); // Close the listening socket in child
-                handle_client(client_fd, root_dir);
+                handle_client(client_fd, root_dir, shm);
                 exit(0);
             }
 
@@ -132,34 +152,7 @@ int main (int argc, char *argv[]) {
 
         }
 
-
-        // int client_fd = accept_connection(server_fd);
-        // printf("Client connected\n");
-
-
-        // if (client_fd < 0) continue; //if accept failed, continue to next iteration
-
-        // pid_t pid = fork();
-
-        // if (pid < 0) {
-        //     perror("Fork failed");
-        //     close(client_fd);
-        //     continue;
-        // }
-        
-        
-        // if (pid == 0) {
-        //     // Child process
-        //     close(server_fd); // Close the listening socket in child
-        //     handle_client(client_fd, root_dir);
-        //     exit(0);
-        // } 
-            
-
-        //  close(client_fd); // Close the connected socket in parent
-        
-
-        
+ 
     }
 
     
