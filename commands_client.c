@@ -363,7 +363,7 @@ void chmods(int client_fd, char *buffer, Session *s){
         if(lock_commands(fd,client_fd,0,0)!=0){
         return;
         }
-        sleep(5);  
+         
 
         
         if(chmod(full_path, perms)!=0){
@@ -476,7 +476,7 @@ void move(int client_fd, char* buffer, Session *s){
         if(lock_commands(fd,client_fd,1,0)!=0){
         return;
         }
-        sleep(5);
+        
         //now we can move the file in the directory of the second path
         move_file(client_fd, full_path_src, full_path_dest_res);
         unlock(fd);
@@ -647,7 +647,7 @@ void delete(int client_fd, char* buffer, Session *s){
     if(lock_commands(fd,client_fd,1,0)!=0){
         return;
     }
-    sleep(5);
+    
     // Restituisce 0 in caso di successo, -1 in caso di errore
     if (unlink(full_path) == 0) {
         printf("File eliminato con successo.\n");
