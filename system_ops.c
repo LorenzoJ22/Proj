@@ -10,6 +10,7 @@
 #include <string.h>
 #include <dirent.h>
 #include <sys/file.h>
+#include <arpa/inet.h>
 
 #include "system_ops.h"
 #include "values.h"
@@ -77,7 +78,7 @@ void sys_make_directory(const char *path, mode_t mode, const char *groupname, co
 
     
 }
-//redundand because is for command create without checking the passwd e group
+//redundand because is made only  for command create.
 void sys_make_directory_creat(const char *path, mode_t mode) {
 
     struct stat st;
@@ -108,7 +109,6 @@ int sys_make_file(const char *path, mode_t mode) {
         } 
         else if (errno == EACCES) {
             fprintf(stderr,COLOR_RED "Error: Permession denied to create file at '%s'.\n"COLOR_RESET, path);
-            //exit(1);
             return -errno;
         }else{
             perror(COLOR_RED"Failed to create file"COLOR_RESET); 
@@ -135,7 +135,6 @@ int create_group(const char *groupname) {
     pid_t pid = fork();
 
     if (pid < 0) {
-        // error handling
         perror("Error forking process to create group");
         return -1;
     }
@@ -151,32 +150,10 @@ int create_group(const char *groupname) {
 }
 
 
-void move_file(int client_fd, const char *source_path, const char *dest_dir) {
-    char full_dest_path[PATH_MAX];
-    char *filename;
-
-    // 1. Estraiamo il nome del file dal percorso sorgente
-    // Esempio: "home/user/file.txt" -> filename punta a "file.txt"
-    filename = strrchr(source_path, '/');
-    if (filename == NULL) {
-        filename = (char *)source_path; // Case where there is no slash
-    } else {
-        filename++; // Hop the slash
-    }
-
-    // 2. We built the complete path of destination 
-    // Es: "home/user/subdir" + "/" + "file.txt"
-    // We use snprintf to avoid buffer overflow
-    size_t needed = snprintf(full_dest_path, sizeof(full_dest_path), "%s/%s", dest_dir, filename);
-
-    if (needed >= sizeof(full_dest_path)) {
-        dprintf(client_fd,"Error: Path too long.\n");
-        return;
-    }
-
-    // 3. Execute the effective movement 
-    if (rename(source_path, full_dest_path) == 0) {
-        dprintf(client_fd,COLOR_GREEN"Moved with success from %s to %s\n"COLOR_RESET, source_path, full_dest_path);
+void move_file(int client_fd, const char *source_path, char *full_path_dest_res) {
+      
+    if (rename(source_path, full_path_dest_res) == 0) {
+        dprintf(client_fd,COLOR_GREEN"Moved with success from %s to %s\n"COLOR_RESET, source_path, full_path_dest_res);
         return;
     } else {
         // Management of common error
@@ -197,7 +174,7 @@ void move_file(int client_fd, const char *source_path, const char *dest_dir) {
     }
 }
 
-// Helper per convertire i flag di mode_t in stringa (es. rwxr-xr-x)
+// Helper per convertire i flag di mode_t in stringa 
 void get_perm_string(mode_t mode, char *str) {
     strcpy(str, "----------"); // 10 chars + null terminator
 
@@ -255,37 +232,6 @@ long long get_directory_content_size(const char *path) {
     return total_size;
 }
 
-/* int can_access_dir(char *path) {
-    struct stat sb;
-
-    // 1. Recupera le info del file/directory
-    if (stat(path, &sb) == -1) {
-        perror("stat failed");
-        return 0; // Se non esiste o errore, nega accesso
-    }
-
-    // 2. Controlla se è una directory
-    if (!S_ISDIR(sb.st_mode)) {
-        return 0; // Non è una directory, non puoi fare cd
-    }
-
-    // 3. Controlla i permessi
-    // Qui devi decidere QUALE permesso guardare:
-    // S_IXUSR = Owner execute (rwx------)
-    // S_IXGRP = Group execute (---rwx---) -> Caso più probabile per un server condiviso
-    // S_IXOTH = Others execute (------rwx)
-
-    // Esempio: Controlliamo se il GRUPPO ha il permesso di esecuzione (0010)
-    if (sb.st_mode & S_IXGRP) {
-        return 1; // Accesso consentito
-    }
-
-    return 0; // Accesso negato
-} */
-
-
-
-
 
 
 //function that check if user put in input an absolute path, that try to go above his home directory 
@@ -296,7 +242,7 @@ int check_home_violation(char* resolved_path, int client_fd, Session *s){
     size_t root_len = strlen(allowed_root);
 
     if (strncmp(resolved_path, allowed_root, strlen(allowed_root)) != 0) {
-        char msg[] = "\033[1;31mError: Access denied (Outside home directory)\033[0m\n"; 
+        char msg[] = COLOR_RED"Error: Access denied (Outside home directory)\n"COLOR_RESET; 
         write(client_fd, msg, strlen(msg));
         return -1;
     }
@@ -307,14 +253,32 @@ int check_home_violation(char* resolved_path, int client_fd, Session *s){
     return 0;
 }
 
+/*function that can be used for write and read*/
+int check_home_violation_r(char* resolved_path, int client_fd, Session *s){
+    char allowed_root[PATH_MAX];
+    snprintf(allowed_root, PATH_MAX, "/%s", s->username);
+
+    size_t root_len = strlen(allowed_root);
+
+    if (strncmp(resolved_path, allowed_root, strlen(allowed_root)) != 0) {
+        return -1;
+    }
+    if (resolved_path[root_len] != '\0' && resolved_path[root_len] != '/') {
+        dprintf(client_fd, COLOR_RED"Error: Access denied. Target is not inside your home.\n"COLOR_RESET);
+        return -1;
+    }
+    return 0;
+}
 
 
+//function that take in input an absolute path with filename not yet created, 
+//so we disconnect the parent dir from the filename and then we add it again at the end, to check the realpath and violation 
+int resolve_safe_create_path(char *raw_input, int client_fd, Session *s, char *final_path_out) {
 int resolve_safe_create_path(char *raw_input, int client_fd, Session *s) {
     char parent_dir[PATH_MAX];
     char filename_part[64];
     char resolved_parent[PATH_MAX];
 
-    // --- LOGICA DEL COLLEGA (Inizio) ---
     
     // 1. Separazione Directory / File
     char *last_slash = strrchr(raw_input, '/');
@@ -362,12 +326,12 @@ int resolve_safe_create_path(char *raw_input, int client_fd, Session *s) {
         return -1;
     }
 
+
+    // 5. Costruzione path finale (Se siamo qui, è tutto sicuro)
+    snprintf(final_path_out, PATH_MAX+1000, "%s/%s", resolved_parent, filename_part);
+    
     return 0; // Successo
 }
-
-
-
-
 
 
 
@@ -403,12 +367,15 @@ int lock_commands(int file_fd, int client_fd, int is_ex_or_sh, int r_w){//choose
         if (errno == EWOULDBLOCK) {
             printf("Entrato nel errno del block\n");
             // Il file è già usato da un altro client!
-            if(r_w==1){//r_w = 1 if you want to send message to read or write, otherwise = 0 if it is a normal command
-                write(client_fd, "ERROR_LOCKED", 12);
-            }else {
+            if(r_w==1){//r_w = 1 if you want to send message to write, otherwise = 0 if it is a normal command and 2 for read
+                //write(client_fd, "ERROR_LOCKED", 12);
+                uint32_t codice = htonl(RESP_ERR_LOCKED);
+                write(client_fd, &codice, sizeof(uint32_t));
+            }else if(r_w==0){
                 dprintf(client_fd,COLOR_RED"Error: file locked at the moment\n"COLOR_RESET);
-            }
+            }else if(r_w==2){
             //send(client_fd, "ERROR_LOCKED", 64, 0);
+            }
             close(file_fd);
             return -1;
         }else{
@@ -421,4 +388,39 @@ int lock_commands(int file_fd, int client_fd, int is_ex_or_sh, int r_w){//choose
 
 void unlock(int file_fd){
     flock(file_fd, LOCK_UN);
+}
+
+
+
+char *custom_basename(char *path) {
+    if (!path || *path == '\0') {
+        return ".";
+    }
+
+    // Cerca l'ultima occorrenza del carattere '/'
+    char *last_slash = strrchr(path, '/');
+
+    // Se non c'è alcuno slash, l'intero path è il filename
+    if (!last_slash) {
+        return path;
+    }
+
+    // Se lo slash è l'ultimo carattere (es. "cartella/"), 
+    // l'utente sta puntando a una directory.
+    if (*(last_slash + 1) == '\0') {
+        return ""; // Restituisce stringa vuota per indicare "nessun file dopo lo slash"
+    }
+
+    // Restituisce tutto ciò che segue l'ultimo slash
+    return last_slash + 1;
+}
+
+
+int is_logged_in(int client_fd,Session *s){
+if (!(s->logged_in)) {
+        char msg[] = COLOR_YELLOW"Cannot use this command while you are guest\n"COLOR_RESET;
+        write(client_fd, msg, strlen(msg));
+        return-1;
+    }
+    return 1;
 }

@@ -19,7 +19,7 @@
 #include <arpa/inet.h>
 #include <sys/file.h>
 
-#define CHUNK_SIZE 4096
+#define SIZE 6000
 #include <sys/socket.h>
 
 
@@ -249,25 +249,25 @@ void create(int client_fd, char *buffer, Session *s){
 
 void change_directory(int client_fd, char *buffer, Session *s) {
     
-    // 1. Controllo Login
+    // Controllo Login
     if (!(s->logged_in)) {
         char msg[] = "Cannot change directory while you are guest\n";
         write(client_fd, msg, strlen(msg));
         return;
     }
 
-    // 2. Parsing del comando (cd <path>)
-    char *command = strtok(buffer, " \t\n"); // "cd"
-    char *path_arg = strtok(NULL, " \t\n");  // "../foto" o NULL
+    //Parsing del comando (cd <path>)
+    char *command = strtok(buffer, " \t\n"); 
+    char *path_arg = strtok(NULL, " \t\n"); 
 
     if (command == NULL || strncmp(command, "cd", 2) != 0) {
         dprintf(client_fd, "Wrong command!\n");
         return;
     }
-    // 3. Gestione del caso "cd" senza argomenti -> vai alla Home
-    // NOTA: In ambiente chroot, la home è"/home"
+    // Gestione del caso "cd" senza argomenti -> vai alla Home
+    // In ambiente chroot, la home è"/home"
     if (path_arg == NULL) {
-        // Se s->home_dir è un path assoluto del sistema reale (es /srv/ftp),
+        // Se s->home_dir è un path assoluto del sistema reale,
         // Assumiamo che dentro il chroot la home sia la radice "/home" o che s->home_dir sia già adattato.
         char *full = calloc(1, PATH_MAX);
     
@@ -280,7 +280,7 @@ void change_directory(int client_fd, char *buffer, Session *s) {
             
     }
     
-    // 4. Risoluzione del percorso con realpath()
+    //Risoluzione del percorso con realpath()
     char resolved_path[PATH_MAX];
 
     char cwd[PATH_MAX];
@@ -349,34 +349,12 @@ void chmods(int client_fd, char *buffer, Session *s){
     
         if(check_home_violation(full_path, client_fd, s)==-1) return;
 
-//also in chmod the normal user cannot change permission of directories and files that are not his
 
-     /*     struct stat sb;
-    
-    if (stat(full_path, &sb) == 0 && S_ISDIR(sb.st_mode)  && access(full_path, X_OK) == 0) {
-        
-        // SUCCESS: directory exist.
-        // Update the session with the user
-        // The current user have permission to access 
-        strncpy(s->current_dir, full_path, PATH_MAX - 1);
-        s->current_dir[PATH_MAX - 1] = '\0'; 
-
-        printf("User changed dir to: %s\n", s->current_dir);
-        
-        char msg[PATH_MAX + 50];
-        snprintf(msg, sizeof(msg), "Directory changed to: %s\n", s->current_dir);
-        write(client_fd, msg, strlen(msg));
-
-    } else {
-        // FAIL: directory does not exist or is not a directory
-        char msg[] = "Error: Directory does not exist or you don't have permission\n";
-        write(client_fd, msg, strlen(msg));
-    } */
 
     //implementare il lock per cartelle 
     int fd = open(full_path, O_RDONLY);
     if(errno == EACCES){
-        printf("You can procede anyways, owner have permission\n");
+        printf("You can procede, owner have permission\n");
     }else if (fd == -1) {
         dprintf(client_fd, COLOR_RED"Error opening file '%s': %s\n"COLOR_RESET, full_path, strerror(errno));
         return;
@@ -385,7 +363,7 @@ void chmods(int client_fd, char *buffer, Session *s){
         if(lock_commands(fd,client_fd,0,0)!=0){
         return;
         }
-        sleep(5);  
+         
 
         
         if(chmod(full_path, perms)!=0){
@@ -411,20 +389,36 @@ void move(int client_fd, char* buffer, Session *s){
             return;
         }
 
-        char path_src[64];
-        char path_dest[64];  
+        char *path_src;
+        char *path_dest;
 
-        if (sscanf(buffer + 5, "%63s %63s", path_src, path_dest) != 2 ) {
-                char msg[] = COLOR_YELLOW"Use: move <path1> <path2>\n"COLOR_RESET;
-                write(client_fd, msg, strlen(msg));
-                return;
+        // buffer + 5 salta "move "
+        char *args = buffer + 5;
+
+        // Prendi il primo argomento
+        path_src = strtok(args, " \n\r\t");
+        // Prendi il secondo argomento
+        path_dest = strtok(NULL, " \n\r\t");
+
+        if (path_src == NULL || path_dest == NULL) {
+            char msg[] = COLOR_YELLOW"Use: move <path_src> <path_dest>\n"COLOR_RESET;
+            write(client_fd, msg, strlen(msg));
+            return;
         }
+        // char path_src[64];
+        // char path_dest[64];  
 
+        // if (sscanf(buffer + 5, "%63s %63s", path_src, path_dest) != 2 ) {
+        //         char msg[] = COLOR_YELLOW"Use: move <path1> <path2>\n"COLOR_RESET;
+        //         write(client_fd, msg, strlen(msg));
+        //         return;
+        // }
+        
         dprintf(client_fd,"Il path_src: %s\n", path_src);
         dprintf(client_fd,"Il path_dest: %s\n", path_dest);
 
         char full_path_src[PATH_MAX+1000];
-        char full_path_dest[PATH_MAX+1000];
+        //char full_path_dest[PATH_MAX+1000];
         //now we have to normalize the two path passed and chek also if they are absolute or relative
 
         if (realpath(path_src, full_path_src) == NULL) {
@@ -433,20 +427,46 @@ void move(int client_fd, char* buffer, Session *s){
             return;
         }
 
-        if(realpath(path_dest, full_path_dest) == NULL){
-            dprintf(client_fd, COLOR_RED"Error: Cannot resolve path '%s': %s\n"COLOR_RESET, path_dest, strerror(errno));
-            return;
-        }
+        // if(realpath(path_dest, full_path_dest) == NULL){
+        //     dprintf(client_fd, COLOR_RED"Error: Cannot resolve path '%s': %s\n"COLOR_RESET, path_dest, strerror(errno));
+        //     return;
+        // }
 
         dprintf(client_fd, "Path reale_src: %s\n", full_path_src);
-        dprintf(client_fd, "Path reale_dest: %s\n", full_path_dest);
+        //dprintf(client_fd, "Path reale_dest: %s\n", full_path_dest);
     
         if(check_home_violation(full_path_src, client_fd, s)==-1) return;
-        if(check_home_violation(full_path_dest, client_fd, s)==-1) return;
+        //if(check_home_violation(full_path_dest, client_fd, s)==-1) return;
+        
+        
+    char full_path_dest_res[PATH_MAX+1000];
+    struct stat st_dest;
+    int dest_exists = (stat(path_dest, &st_dest) == 0);
+    
+    if (dest_exists && S_ISDIR(st_dest.st_mode)) {
+        // CASO A: Il path_dest è una directory. 
+        // Dobbiamo appendere il nome del file originale.
+        char *filename = custom_basename(full_path_src);
+        char temp_path[PATH_MAX];
+        
+        snprintf(temp_path, sizeof(temp_path), "%s/%s", path_dest, filename);
+        
+        // Ora risolviamo questo nuovo path combinato
+        if (resolve_safe_create_path(temp_path, client_fd, s, full_path_dest_res) != 0) {
+            return; // Errore già gestito dentro resolve_safe_create_path
+        }
+    } 
+    else {
+        //CASO B: Il path_dest non esiste o include già un (nuovo) filename
+        // Usiamo direttamente la tua logica di risoluzione sicura
+        if (resolve_safe_create_path(path_dest, client_fd, s, full_path_dest_res) != 0) {
+            return;
+        }
+    }
 
         dprintf(client_fd,"Il full_path_src: %s\n", full_path_src);
-        dprintf(client_fd,"Il full_path_dest: %s\n", full_path_dest);
-
+        dprintf(client_fd,"Il full_path_dest: %s\n", full_path_dest_res);
+        
         int fd = open(full_path_src, O_WRONLY);
         if (fd == -1) {
         dprintf(client_fd, COLOR_RED"Error opening or creating file '%s': %s\n"COLOR_RESET, full_path_src, strerror(errno));
@@ -456,9 +476,9 @@ void move(int client_fd, char* buffer, Session *s){
         if(lock_commands(fd,client_fd,1,0)!=0){
         return;
         }
-        sleep(5);
+        
         //now we can move the file in the directory of the second path
-        move_file(client_fd, full_path_src, full_path_dest);
+        move_file(client_fd, full_path_src, full_path_dest_res);
         unlock(fd);
         close(fd);
 }
@@ -567,9 +587,6 @@ void list(int client_fd, char *buffer, Session *s) {
         }
     }
 
-    // 6. INVIO UNICO AL CLIENT
-    // Ora inviamo tutto il blocco insieme. Il client riceverà tutto in una volta (o quasi),
-    // senza le pause causate dai calcoli ricorsivi.
     write(client_fd, response_buffer, strlen(response_buffer));
 
     // Pulizia
@@ -581,9 +598,7 @@ void list(int client_fd, char *buffer, Session *s) {
 
 
 void delete(int client_fd, char* buffer, Session *s){
-    if (!(s->logged_in)) {
-        char msg[] = "Cannot list files while you are guest\n";
-        write(client_fd, msg, strlen(msg));
+   if(!is_logged_in(client_fd,s)){
         return;
     }
 
@@ -622,7 +637,7 @@ void delete(int client_fd, char* buffer, Session *s){
     // }
 
     // if (S_ISDIR(st.st_mode)) {
-    //     // È una directory! 
+    //     // E' una directory
     //     // Invia al client "ERROR_IS_DIR" (magari in rosso!)
     //     printf("Error: %s is a directory.\n", path);
     //     unlock(fd);
@@ -632,7 +647,7 @@ void delete(int client_fd, char* buffer, Session *s){
     if(lock_commands(fd,client_fd,1,0)!=0){
         return;
     }
-    sleep(5);
+    
     // Restituisce 0 in caso di successo, -1 in caso di errore
     if (unlink(full_path) == 0) {
         printf("File eliminato con successo.\n");
@@ -655,15 +670,17 @@ void delete(int client_fd, char* buffer, Session *s){
 
 void write_client(int client_fd, char* buffer, Session *s){
     if (!(s->logged_in)) {
-        char msg[] = "Cannot list files while you are guest\n";
-        write(client_fd, msg, strlen(msg));
+        // char msg[] = "GUES_ERR";
+        // write(client_fd, msg, 9);
+        uint32_t codice = htonl(RESP_ERR_GUEST); // Converte l'1 in formato rete
+        write(client_fd, &codice, sizeof(uint32_t));
         return;
     }
 
 
     int is_set = 0; 
     char *args = buffer + 6;
-    int num;
+    long num;
     int consumed=0;
     
     if (strncmp(args, "-offset ", 8) == 0) {
@@ -671,33 +688,41 @@ void write_client(int client_fd, char* buffer, Session *s){
         is_set = 1;      // We found the option!
         args += 8;       // Shift the pointer of three positions (hop " ")
         int i;
-        if( (i=sscanf(args, "%d%n", &num, &consumed))==1){//%*[^0-9]%d  ---> hop all the non integer input , %n per contare
+        if( (i=sscanf(args, "%ld%n", &num, &consumed))==1){//%*[^0-9]%d  ---> hop all the non integer input , %n per contare
         args += consumed;
         if(num<0){
-        write(client_fd, "OFF_UNDER",9);
-        printf("Offset not vaild too small!\n");
+        // write(client_fd, "OFF_UNDER",9);
+        // printf("Offset not vaild too small!\n");
+        uint32_t codice = htonl(RESP_ERR_OFFSET_UNDER); 
+        write(client_fd, &codice, sizeof(uint32_t));
         return;
         }
         // Now args point to the beginnig of the path
     }else{
-        write(client_fd,"NO_OFF",6);
-        printf("Fail to save num\n");
+        // write(client_fd,"NO_OFF",6);
+        // printf("Fail to save num\n");
+        uint32_t codice = htonl(RESP_ERR_NO_OFFSET); 
+        write(client_fd, &codice, sizeof(uint32_t));
         return;
     }
         printf("args e': %s, cosumed:%d,scanf readed %d\n", args, consumed, i);
     }else if(strncmp(args, "-offset", 7)==0){
-        write(client_fd,"US",2);
-        printf("Fail to save off\n");
+        // write(client_fd,"US",2);
+        // printf("Fail to save off\n");
+        uint32_t codice = htonl(RESP_USAGE); 
+        write(client_fd, &codice, sizeof(uint32_t));
         return;
     }
 
     char path[64];
     memset(path, 0, sizeof(path)); 
 
-    // 1. Logica di parsing, and we add to args the number length and a space..
+    //Logica di parsing, and we add to args the number length and a space..
     if (sscanf(args, "%63s", path) != 1) {
-        write(client_fd,"ERROR",5);
+        // write(client_fd,"ERROR",5);
         //dprintf(client_fd,"Usage: from server write -offset=<num> <path>\n");
+        uint32_t codice = htonl(RESP_USAGE); 
+        write(client_fd, &codice, sizeof(uint32_t));
         return;
     }
         printf("Il path passato adesso e':%s\n",path);
@@ -706,7 +731,7 @@ void write_client(int client_fd, char* buffer, Session *s){
         char filename_part[64];
         char resolved_parent[PATH_MAX];
     
-        // 2. SEPARAZIONE PADRE / FIGLIO
+        // SEPARAZIONE PADRE / FIGLIO
         // Cerchiamo l'ultimo slash per dividere la cartella dal file che vogliamo creare
         char *last_slash = strrchr(path, '/');
     
@@ -734,31 +759,44 @@ void write_client(int client_fd, char* buffer, Session *s){
         }
 
          if (strlen(filename_part) == 0) {
-             char msg[] = COLOR_RED "Error: Invalid file name (trailing slash?)\n" COLOR_RESET;
-             write(client_fd, msg, strlen(msg));
-             return;
+            //  char msg[] = COLOR_RED "Error: Invalid file name (trailing slash?)\n" COLOR_RESET;
+            //  write(client_fd, msg, strlen(msg));
+            uint32_t codice = htonl(RESP_ERR_INVALID_FILE_N);
+            write(client_fd, &codice, sizeof(uint32_t));
+            return;
             }
             if (strcmp(filename_part, ".") == 0 || strcmp(filename_part, "..") == 0) {
-                char msg[] = COLOR_RED"Error: Cannot name a file or directory '.' or '..'\n"COLOR_RESET;
-                write(client_fd, msg, strlen(msg));
+                // char msg[] = COLOR_RED"Error: Cannot name a file or directory '.' or '..'\n"COLOR_RESET;
+                // write(client_fd, msg, strlen(msg));
+                uint32_t codice = htonl(RESP_ERR_INVALID_DOT);
+                write(client_fd, &codice, sizeof(uint32_t));
                 return;
             }
             if (strstr(filename_part, "-")) {
-                char msg[] = "INVALID_NAME";
-                write(client_fd, msg, strlen(msg));
+                // char msg[] = "INVALID_NAME";
+                // write(client_fd, msg, strlen(msg));
+                uint32_t codice = htonl(RESP_ERR_INVALID_NAME);
+                write(client_fd, &codice, sizeof(uint32_t));
                 //printf(COLOR_RED "Error: You cannot name file with initial ' - '\n" COLOR_RESET);
                 return;
             }
             
             
             if (realpath(parent_dir, resolved_parent) == NULL) {
-                write(client_fd, "ER_PATH",7);
+                //write(client_fd, "ER_PATH",7);
+                uint32_t codice = htonl(RESP_ERR_PATH);
+                write(client_fd, &codice, sizeof(uint32_t));
                 //dprintf(client_fd, COLOR_RED"Error: Destination directory not found or access denied (%s)\n"COLOR_RESET, strerror(errno));
                 return;
             }
             
             //check for home violation creation
-            if(check_home_violation(resolved_parent, client_fd, s)==-1) return;
+            if(check_home_violation_r(resolved_parent, client_fd, s)==-1) {
+                //write(client_fd, "ER_VIOL",7);
+                uint32_t codice = htonl(RESP_ERR_VIO);
+                write(client_fd, &codice, sizeof(uint32_t));
+                return;
+            }
 
             // Mettiamo insieme la cartella padre pulita + / + il nome file
             snprintf(full_path, PATH_MAX+1000, "%s/%s", resolved_parent, filename_part);
@@ -771,26 +809,17 @@ void write_client(int client_fd, char* buffer, Session *s){
             }
             
             if (file_fd < 0) {
-                write(client_fd,"ER_FIL",6);
-                dprintf(client_fd, "Error creating/open file '%s': %s\n", full_path, strerror(errno));
+                // write(client_fd,"ER_FIL",6);
+                // dprintf(client_fd, "Error creating/open file '%s': %s\n", full_path, strerror(errno));
+                uint32_t codice = htonl(RESP_ERR_OPEN);
+                write(client_fd, &codice, sizeof(uint32_t));
                 return;
             }
             if(lock_commands(file_fd,client_fd,1,1)!=0){
                 printf("Occupied, so return\n");
                 return;
             }
-            // if (flock(file_fd, LOCK_EX | LOCK_NB) < 0) {
-            //     if (errno == EWOULDBLOCK) {
-            //         printf("Entrato nel errno del block\n");
-            //         //dprintf(client_fd,"Bloccato\n");
-            //         // Il file è già usato da un altro client!
-            //         write(client_fd, "ERROR_LOCKED", 12);
-            //         //send(client_fd, "ERROR_LOCKED", 64, 0);
-            //         close(file_fd);
-            //         return;
-            //     }else{perror("Error\n");}
-            // }
-            // printf("File of current process blocked succesfully\n");
+            
             
     char line_buf[2048]; 
             
@@ -802,13 +831,17 @@ void write_client(int client_fd, char* buffer, Session *s){
 
     //check if the offset length is longer than the file size.
     if(is_set && size < num){
-        write(client_fd, "OFF_ER",6);
+        //write(client_fd, "OFF_ER",6);
         //dprintf(client_fd,COLOR_RED"Error: offset length too long!\n"COLOR_RESET);
+        uint32_t codice = htonl(RESP_ERR_OFFSET_LONG);
+        write(client_fd, &codice, sizeof(uint32_t));
         unlock(file_fd);
         close(file_fd); 
         return;
      }else{
-        write(client_fd, "OK", 2);
+        //write(client_fd, "OK", 2);
+        uint32_t codice = htonl(RESP_OK);
+        write(client_fd, &codice, sizeof(uint32_t));
     }
 
     off_t tail_size = size - num;
@@ -830,21 +863,7 @@ void write_client(int client_fd, char* buffer, Session *s){
         printf("Letto n: %ld\n", n);
         if (n <= 0) break;
 
-        // 5. Controllo "END"
-        // Controlliamo tutte le varianti di a capo
-        // char *terminator = strstr(line_buf, "END");
-        // if (terminator != NULL) {
-        //     break;
-        //     // printf("E' entrato qui? Allora ha preso end=%s\n", terminator);
-        //     // // Trovato! Calcoliamo quanti byte scrivere prima di :end
-        //     // int bytes_to_write = terminator - line_buf;
-        //     // printf("Quanti sono dalla sottrazione terminatore-linebuff?=%d\n", bytes_to_write);
-        //     // if (bytes_to_write > 0) {
-        //     //     printf("Scrivo qui?\n");
-        //     //     write(file_fd, line_buf, bytes_to_write);
-        //     //     break;
-        //     // }
-        // }
+        
         if (strcmp(line_buf, "END\n") == 0 || strcmp(line_buf, "END") == 0) {
             printf("Transfer completed.\n");
             dprintf(client_fd, COLOR_GREEN"File received and saved successfully.\n"COLOR_RESET);
@@ -866,8 +885,6 @@ void write_client(int client_fd, char* buffer, Session *s){
     unlock(file_fd);
     // Chiudiamo il file che abbiamo scritto
     close(file_fd);
-
-
 }
 
 
@@ -952,128 +969,125 @@ void upload (int client_fd, char* command_args, Session *s){
 
 
 
-
-
-
-
-
-
-    void read_client(int client_fd, char *buffer, Session *s){
+void read_client(int client_fd, char *buffer, Session *s) {
     if (!(s->logged_in)) {
-        char msg[] = "Cannot list files while you are guest\n";
-        write(client_fd, msg, strlen(msg));
+        char err_msg[] = "Cannot read files while you are guest";
+        uint32_t err_size = htonl(strlen(err_msg));
+        write(client_fd, &err_size, sizeof(uint32_t));
+        write(client_fd, err_msg, strlen(err_msg));
         return;
     }
 
     int is_set = 0; 
     char *args = buffer + 5;
-    int num=0;
-    int consumed=0;
+    int num = 0;
+    int consumed = 0;
     
+    // Gestione Offset
     if (strncmp(args, "-offset ", 8) == 0) {
-        printf("adding offset..\n");
-        is_set = 1;      // We found the option!
-        args += 8;       // Shift the pointer of three positions (hop " ")
-        int i;
-        if( (i=sscanf(args, "%d%n", &num, &consumed))==1){//%*[^0-9]%d  ---> hop all the non integer input , %n per contare
-        args += consumed;
-        // Now args point to the beginnig of the path
-    }else{
-        write(client_fd,"NO_OFF",6);
-        printf("Fail to save num\n");
+        is_set = 1;
+        args += 8;
+        if (sscanf(args, "%d%n", &num, &consumed) == 1) {
+            args += consumed;
+        } else {
+            uint32_t err_size = htonl(2);
+            write(client_fd, &err_size, sizeof(uint32_t));
+            write(client_fd, "US", 2);
+            return;
+        }
+    } else if (strncmp(args, "-offset", 7) == 0) {
+        uint32_t err_size = htonl(2);
+        write(client_fd, &err_size, sizeof(uint32_t));
+        write(client_fd, "US", 2);
         return;
     }
-        printf("args is: %s, cosumed instead:%d, readed %d\n", args, consumed, i);
-    }else if(strncmp(args, "-offset", 7)==0) {
-        write(client_fd,"US",2);
-        printf("Fail to save off\n");
-        return;
-     }//else{
-    //     write(client_fd,"OK",2);
-    // }
 
     char path[64];
     memset(path, 0, sizeof(path)); 
-
-    // 1. Parsing logic, and we add to args the number length and a space..
     if (sscanf(args, "%63s", path) != 1) {
-        printf("Usage: read -offset=<num> <path>\n");
+        // Errore silenzioso o log lato server
+        char *err_msg = "ERROR_PARAM";
+        uint32_t err_size = htonl(strlen(err_msg));
+        write(client_fd, &err_size, sizeof(uint32_t));
+        write(client_fd, err_msg, strlen(err_msg));
         return;
     }
 
-    char full_path[PATH_MAX + 1000];
-
+    char full_path[PATH_MAX];
     if (realpath(path, full_path) == NULL) {
-        dprintf(client_fd, COLOR_RED"Error: Destination directory not found or access denied (%s)\n"COLOR_RESET, strerror(errno));
+        // Se il file non esiste, avvisa il client
+        char *err_msg = "ERR_NOT_FOUND";
+        uint32_t err_size = htonl(strlen(err_msg));
+        write(client_fd, &err_size, sizeof(uint32_t));
+        write(client_fd, err_msg, strlen(err_msg));
         return;
     }
             
-    //check for home violation creation
-    if(check_home_violation(full_path, client_fd, s)==-1) return;
-
-    int file_fd;
-    file_fd = open(full_path, O_RDONLY);
+    if (check_home_violation_r(full_path, client_fd, s) == -1){
+        char *err_msg = "ERR_VIO";
+        uint32_t err_size = htonl(strlen(err_msg));
+        write(client_fd, &err_size, sizeof(uint32_t));
+        write(client_fd, err_msg, strlen(err_msg));
+        return;
+    }
     
 
+    int file_fd = open(full_path, O_RDONLY);
     if (file_fd < 0) {
-        dprintf(client_fd, COLOR_RED"Error creating/opening file '%s': %s\n"COLOR_RESET, full_path, strerror(errno));
+        char *err_msg = "ERR_OPEN";
+        uint32_t err_size = htonl(strlen(err_msg));
+        write(client_fd, &err_size, sizeof(uint32_t));
+        write(client_fd, err_msg, strlen(err_msg));
         return;
     }
          
-    if(lock_commands(file_fd,client_fd,0,1)!=0){
-            printf("Occupied, so return\n");
-            return;
-        }
-    
+    if (lock_commands(file_fd, client_fd, 0, 2) != 0) {
+        char *err_msg = "ERROR_LOCKED";
+        uint32_t err_size = htonl(strlen(err_msg));
+        write(client_fd, &err_size, sizeof(uint32_t));
+        write(client_fd, err_msg, strlen(err_msg));
+        return;
+    }
 
-    char line_buf[2048];
-    char line_control[2048];
-    //With the offset, we have to insert the new strings without cancel the rest of file
     struct stat st;
     fstat(file_fd, &st);
-    off_t size = st.st_size;
-    snprintf(line_control, sizeof(line_control), "The size of file is :%ld, instead the offset is:%d error offset too long!", size, num);
-    //write(client_fd, line_control, sizeof(line_control));
-    //check if the offset length is longer than the file size.
-    if(size < num){
-        write(client_fd, "ERR_OFFSET", 10);
-        printf("Ho inviato errore offs, esco dalla funzione read_client e torno nel while principale\n");
-        //write(client_fd, line_control, sizeof(line_control));
-        //dprintf(client_fd,COLOR_RED"Error: offset length too long!\n"COLOR_RESET);
+    off_t file_size = st.st_size;
+
+    // Controllo Offset troppo grande
+    if (is_set && file_size < num) {
+        char *err_msg = "ERR_OFFSET";
+        uint32_t err_size = htonl(strlen(err_msg));
+        write(client_fd, &err_size, sizeof(uint32_t));
+        write(client_fd, err_msg, strlen(err_msg));
         unlock(file_fd);
         close(file_fd);  
         return;
     }
 
-    if(is_set){
-    lseek(file_fd, num, SEEK_SET);
-    }
-
-    ssize_t l = read(file_fd, line_buf, sizeof(line_buf));
-    printf("Letto l da server: %ld\n", l);
-    if(l<=0){
-        write(client_fd, "EMPTY_OR_READ_ERROR", 19);
-        unlock(file_fd);
-        close(file_fd);
-        return;
-    }
-
-    if (write(client_fd, line_buf, l) < 0) {
-        dprintf(client_fd, "Error writing to file: %s\n", strerror(errno));
-        unlock(file_fd);
-        close(file_fd);
-        return;
-        }
-
-        sleep(9);
-        //send_prompt(client_fd,s);
-    printf("At the end of write from server\n");
-    lseek(file_fd, 0, SEEK_SET);
-    unlock(file_fd);
-    printf("File unlock from read server\n");
-    close(file_fd);
+    // Calcolo quanti byte effettivamente invieremo
+    uint32_t effective_size = (is_set) ? (file_size - num) : file_size;
+    uint32_t net_count = htonl(effective_size);
     
+    
+    write(client_fd, &net_count, sizeof(uint32_t));
+
+    if (is_set) {
+        lseek(file_fd, num, SEEK_SET);
     }
+
+    // Invio del contenuto a pezzi
+    char line_buf[SIZE]; 
+    ssize_t l;
+    while ((l = read(file_fd, line_buf, sizeof(line_buf))) > 0) {
+        if (write(client_fd, line_buf, l) < 0) {
+            break;
+        }
+    }
+
+    printf("Inviati %u byte al client.\n", effective_size);
+    unlock(file_fd);
+    close(file_fd);
+}
     
     
 void download(int client_fd, char* command_args, Session *s){
@@ -1105,6 +1119,7 @@ void download(int client_fd, char* command_args, Session *s){
         send_message(client_fd, msg);
         return;
     }
+   
 
     int fd = fileno(fp);
     if(flock(fd, LOCK_SH | LOCK_NB) != 0) {
