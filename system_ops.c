@@ -78,7 +78,7 @@ void sys_make_directory(const char *path, mode_t mode, const char *groupname, co
 
     
 }
-//redundand because is for command create without checking the passwd e group
+//redundand because is made only  for command create.
 void sys_make_directory_creat(const char *path, mode_t mode) {
 
     struct stat st;
@@ -109,7 +109,6 @@ int sys_make_file(const char *path, mode_t mode) {
         } 
         else if (errno == EACCES) {
             fprintf(stderr,COLOR_RED "Error: Permession denied to create file at '%s'.\n"COLOR_RESET, path);
-            //exit(1);
             return -errno;
         }else{
             perror(COLOR_RED"Failed to create file"COLOR_RESET); 
@@ -136,7 +135,6 @@ int create_group(const char *groupname) {
     pid_t pid = fork();
 
     if (pid < 0) {
-        // error handling
         perror("Error forking process to create group");
         return -1;
     }
@@ -153,26 +151,7 @@ int create_group(const char *groupname) {
 
 
 void move_file(int client_fd, const char *source_path, char *full_path_dest_res) {
-    // char full_dest_path[PATH_MAX];
-    // char *filename;
-
-    // // 1. Estraiamo il nome del file dal percorso sorgente
-    // filename = strrchr(source_path, '/');
-    // if (filename == NULL) {
-    //     filename = (char *)source_path; // Case where there is no slash
-    // } else {
-    //     filename++; // Hop the slash
-    // }
-
-    // // 2. We built the complete path of destination 
-    // size_t needed = snprintf(full_dest_path, sizeof(full_dest_path), "%s/%s", dest_dir, filename);
-
-    // if (needed >= sizeof(full_dest_path)) {
-    //     dprintf(client_fd,"Error: Path too long.\n");
-    //     return;
-    // }
-
-   
+      
     if (rename(source_path, full_path_dest_res) == 0) {
         dprintf(client_fd,COLOR_GREEN"Moved with success from %s to %s\n"COLOR_RESET, source_path, full_path_dest_res);
         return;
@@ -195,7 +174,7 @@ void move_file(int client_fd, const char *source_path, char *full_path_dest_res)
     }
 }
 
-// Helper per convertire i flag di mode_t in stringa (es. rwxr-xr-x)
+// Helper per convertire i flag di mode_t in stringa 
 void get_perm_string(mode_t mode, char *str) {
     strcpy(str, "----------"); // 10 chars + null terminator
 
@@ -253,37 +232,6 @@ long long get_directory_content_size(const char *path) {
     return total_size;
 }
 
-/* int can_access_dir(char *path) {
-    struct stat sb;
-
-    // 1. Recupera le info del file/directory
-    if (stat(path, &sb) == -1) {
-        perror("stat failed");
-        return 0; // Se non esiste o errore, nega accesso
-    }
-
-    // 2. Controlla se è una directory
-    if (!S_ISDIR(sb.st_mode)) {
-        return 0; // Non è una directory, non puoi fare cd
-    }
-
-    // 3. Controlla i permessi
-    // Qui devi decidere QUALE permesso guardare:
-    // S_IXUSR = Owner execute (rwx------)
-    // S_IXGRP = Group execute (---rwx---) -> Caso più probabile per un server condiviso
-    // S_IXOTH = Others execute (------rwx)
-
-    // Esempio: Controlliamo se il GRUPPO ha il permesso di esecuzione (0010)
-    if (sb.st_mode & S_IXGRP) {
-        return 1; // Accesso consentito
-    }
-
-    return 0; // Accesso negato
-} */
-
-
-
-
 
 
 //function that check if user put in input an absolute path, that try to go above his home directory 
@@ -305,6 +253,7 @@ int check_home_violation(char* resolved_path, int client_fd, Session *s){
     return 0;
 }
 
+/*function that can be used for write and read*/
 int check_home_violation_r(char* resolved_path, int client_fd, Session *s){
     char allowed_root[PATH_MAX];
     snprintf(allowed_root, PATH_MAX, "/%s", s->username);
@@ -382,10 +331,6 @@ int resolve_safe_create_path(char *raw_input, int client_fd, Session *s, char *f
     
     return 0; // Successo
 }
-
-
-
-
 
 
 
