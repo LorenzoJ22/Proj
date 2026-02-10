@@ -17,4 +17,7 @@ void write_client(int client_fd, char* buffer, Session *s);
 void read_client(int client_fd, char *buffer, Session *s);
 void upload(int client_fd, char *buffer, Session *s);
 void download(int client_fd, char *buffer, Session *s);
+void transfer_request(int client_fd, char *buffer, SharedMemory *shm, Session *s);
+int notify_transfer_requests(int client_fd, SharedMemory *shm, Session *s);
+void accept_transfer_request(int client_fd, char *buffer, SharedMemory *shm, Session *s);
 #endif

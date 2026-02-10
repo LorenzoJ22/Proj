@@ -19,6 +19,7 @@
 #include <fcntl.h>
 #include <arpa/inet.h>
 #include <sys/file.h>
+#include <signal.h>
 
 #define CHUNK_SIZE 4096
 #include <sys/socket.h>
@@ -1137,4 +1138,233 @@ void download(int client_fd, char* command_args, Session *s){
         }
     }
     
+}
+
+
+void transfer_request(int client_fd, char* buffer, SharedMemory *shm, Session *s){
+
+        if (!(s->logged_in)) {
+            char msg[] = "Cannot transfer files while you are guest\n";
+            write(client_fd, msg, strlen(msg));
+            return;
+        }
+
+        pid_t target_pid = -1;
+        int req_idx = -1;
+
+        char filename[64];
+        char target_user[64];
+
+        if (sscanf(buffer, "transfer_request %255s %255s", filename, target_user) != 2) {
+            char *msg = "ERROR: Invalid format. Use: transfer_request <source file> <destination user>\n";
+            send_message(client_fd, msg);
+            return;
+        }
+
+        char full_path[PATH_MAX];
+
+        if (realpath(filename, full_path) == NULL) {
+            dprintf(client_fd, COLOR_RED"Error: Cannot resolve file path '%s': %s\n"COLOR_RESET, filename, strerror(errno));
+            send_message(client_fd, COLOR_RED"ERROR: Cannot resolve file path.\n"COLOR_RESET);
+            return;
+        }
+        
+
+        
+        printf("Transfer request: file '%s' to user '%s'\n", full_path, target_user);
+        while(target_pid == -1){
+            sem_wait(&shm->semaphore);
+            for (int i = 0; i < MAX_CLIENTS; i++) {
+                if (shm->users[i].is_online && strcmp(shm->users[i].username, target_user) == 0) {
+
+                    target_pid = shm->users[i].pid;
+                    
+                    break;
+                }
+
+            }
+            sem_post(&shm->semaphore);
+            sleep(2);
+        }
+
+        if(sem_wait(&shm->semaphore) == -1){
+            fprintf(stderr, "Errore critico nel processo %d\n", getpid());
+            send_message(client_fd, "CRITICAL_ERROR WITH SHARED_MEMORY\n");
+            return;
+        }
+
+        for (int i = 0; i < MAX_REQUESTS; i++) {
+            if (shm->requests[i].status == REQ_EMPTY) {
+                req_idx = i;
+                break;
+            }
+        }
+
+        int my_req_id = -1;
+
+        //if we found the target user and we have a slot for the request, we can create it
+        if (target_pid != -1 && req_idx != -1) {
+
+            my_req_id = shm->global_id_counter++;
+
+            shm->requests[req_idx].id = my_req_id;
+
+            strcpy(shm->requests[req_idx].sender, s->username);
+            strcpy(shm->requests[req_idx].receiver, target_user);
+            strcpy(shm->requests[req_idx].filename, filename);
+            strcpy(shm->requests[req_idx].full_path, full_path);
+            shm->requests[req_idx].status = REQ_PENDING;
+            shm->requests[req_idx].outcome = 0;
+        } else {
+            send_message(client_fd, "Error: Cannot process transfer request (too many requests).\n");
+
+            if (sem_post(&shm->semaphore) == -1) {
+                fprintf(stderr, "Errore critico nel processo %d\n", getpid());
+                send_message(client_fd, "CRITICAL_ERROR WITH SHARED_MEMORY\n");
+            }
+
+            return;
+        }
+
+        if (sem_post(&shm->semaphore) == -1) {
+            fprintf(stderr, "Errore critico nel processo %d\n", getpid());
+            send_message(client_fd, "CRITICAL_ERROR WITH SHARED MEMORY\n");
+            return;
+        }
+
+        // if (req_idx == -1) {
+        //     send_message(client_fd, "Error: Server busy (too many requests).\n");
+        //     return;
+        // }
+
+        if (seteuid(0) < 0) {
+            perror("Impossibile tornare root");
+            // Gestisci errore
+        }
+
+        printf("Sending signal to target user with PID %d\n", target_pid);
+
+        if (kill(target_pid, SIGUSR1) == -1) {
+            perror("Error sending signal to target user");
+            send_message(client_fd, "Error: Failed to notify target user.\n");
+            return;
+        }
+
+        printf("Signal sent successfully. Waiting for response...\n");
+
+        while(1){
+            sem_wait(&shm->semaphore);
+            if(shm->requests[req_idx].outcome == 1){
+                send_message(client_fd, "Transfer request accepted by target user.\n");
+                sem_post(&shm->semaphore);
+                break;
+            }
+
+            if(shm->requests[req_idx].outcome == 2){
+                send_message(client_fd, "Transfer request rejected by target user.\n");
+                sem_post(&shm->semaphore);
+                break;
+            }
+            sem_post(&shm->semaphore);
+            sleep(2);
+        }
+
+    }
+
+
+        
+int notify_transfer_requests(int client_fd, SharedMemory *shm, Session *s){
+
+    int id=-1;
+    sem_wait(&shm->semaphore);
+    for (int i = 0; i < MAX_REQUESTS; i++) {
+        if (shm->requests[i].status == REQ_PENDING && strcmp(shm->requests[i].receiver, s->username) == 0) {
+            char msg[256];
+            snprintf(msg, sizeof(msg), "Received transfer request with id %d for file: %s from %s\n", shm->requests[i].id, shm->requests[i].filename, shm->requests[i].sender);
+            send_message(client_fd, msg);
+            id = i;
+        }
+    }
+    sem_post(&shm->semaphore);
+    return id;
+}
+
+void accept_transfer_request(int client_fd, char* buffer, SharedMemory *shm, Session *s){
+
+    char filename[64];
+    char full_path[PATH_MAX];
+    char sender[64];
+    char directory[64];
+    char transfer_id[64];
+    int found=0;
+
+    if (sscanf(buffer, "accept %255s %255s", directory, transfer_id) != 2) {
+        char *msg = "ERROR: Invalid format. Use: accept_transfer <sender user> <filename>\n";
+        send_message(client_fd, msg);
+        return;
+    }
+
+    sem_wait(&shm->semaphore);
+
+    for (int i = 0; i < MAX_REQUESTS; i++) {
+        if (shm->requests[i].status == REQ_PENDING && strcmp(shm->requests[i].receiver, s->username) == 0 && shm->requests[i].id == atoi(transfer_id)) {
+            
+ 
+            strcpy(filename, shm->requests[i].filename);
+            strcpy(sender, shm->requests[i].sender);
+            strcpy(full_path, shm->requests[i].full_path);
+            shm->requests[i].status = REQ_EMPTY;
+            shm->requests[i].outcome = 1; //accepted
+            found=1;
+            break;
+        }
+    }
+
+    sem_post(&shm->semaphore);
+
+    if (!found) {
+        char *msg = "ERROR: Transfer request not found or already accepted.\n";
+        send_message(client_fd, msg);
+        return;
+    }
+
+    // int src = open(full_path, O_RDONLY);
+    // if (src == -1) {
+    //     send_message(client_fd, "Error: Source file not found.\n");
+    //     return;
+    // }
+
+    // int dst = open(directory, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+    FILE *src = fopen(full_path, "rb");
+    if (!src) {
+        send_message(client_fd, "Error: Source file not found.\n");
+        return;
+    }
+
+    char resolved_path[PATH_MAX];
+    snprintf(resolved_path, sizeof(resolved_path), "%s/%s", directory, filename);
+
+    FILE *dest = fopen(resolved_path, "wb");
+    if (!dest) {
+        fclose(src);
+        send_message(client_fd, "Error: Cannot write destination file.\n");
+        return;
+    }
+
+    char buf[4096];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), src)) > 0) {
+        fwrite(buf, 1, n, dest);
+    }
+
+    fclose(src);
+    fclose(dest);
+
+    
+    send_message(client_fd, COLOR_GREEN"File transfer completed successfully.\n"COLOR_RESET);
+    printf("File transfer from %s to %s completed successfully.\n", sender, s->username);
+
+
+
 }
