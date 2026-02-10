@@ -87,7 +87,7 @@ void handle_client(int client_fd, const char *root_dir, SharedMemory *shm) {
                     sem_wait(&shm->semaphore);
                     shm->requests[id].outcome = 2; // rejected
                     sem_post(&shm->semaphore);
-                    char msg[] = "Transfer request rejected\n";
+                    char msg[] = COLOR_RED"Transfer request rejected\n"COLOR_RESET;
                     write(client_fd, msg, strlen(msg));
                     incoming_request = 0;
                     continue;

@@ -897,8 +897,9 @@ void upload (int client_fd, char* command_args, Session *s){
         return;
     }
 
+    char final_path[PATH_MAX];
 
-    if (resolve_safe_create_path(filepath, client_fd, s) == -1) {
+    if (resolve_safe_create_path(filepath, client_fd, s, final_path) == -1) {
         return;
     }
 
@@ -1100,8 +1101,9 @@ void download(int client_fd, char* command_args, Session *s){
         return;
     }
 
-    
-    if (resolve_safe_create_path(filepath, client_fd, s) == -1) {
+    char final_path[PATH_MAX];
+
+    if (resolve_safe_create_path(filepath, client_fd, s, final_path) == -1) {
         return;
     }
 

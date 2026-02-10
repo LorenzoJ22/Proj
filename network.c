@@ -109,7 +109,7 @@ int receive_message(int sockfd, char *buffer, int size) {
 int perform_upload_logic(int sockfd, const char *local_path, const char *remote_path){
 
 
-        char final_remote_path[PATH_MAX];
+        char final_remote_path[2048];
     
         FILE *fp = fopen(local_path, "rb");
         if (fp == NULL ) {
