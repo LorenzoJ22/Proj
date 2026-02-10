@@ -88,7 +88,7 @@ void handle_client(int client_fd, const char *root_dir) {
             continue;
         }
 
-        /*Add here the if to check if the current user is logged in, so we don't have to repetly put it in every function*/
+        /*Add the ""if to check if the current user is logged in, so we don't have to repetly put it in every function*/
 
         //create [-d] <path><permission> command, create a file 
         if(strncmp(buffer, "create ", 7) ==0){

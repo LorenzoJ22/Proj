@@ -9,7 +9,8 @@
 
 #define SIZE 6000
 
-void client_write_data(int sockfd, char *buffer) {
+void client_write_data(int sockfd) {
+
     uint32_t net_status;
     char file_buf[1024];
 
@@ -100,7 +101,7 @@ void client_write_data(int sockfd, char *buffer) {
 }
 
 
-void client_read_data(int sockfd, char *buffer) {
+void client_read_data(int sockfd) {
     char file_buf[SIZE];
     uint32_t net_count = 0;
     

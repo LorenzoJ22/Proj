@@ -129,16 +129,14 @@ int main(int argc, char *argv[]){
             }
 
             if (strncmp(buffer, "write ", 6) == 0) {
-            // If so, I enter "Send File" mode.
-            // I do NOT have to immediately go back to the beginning of the while loop to do receive_message!
             send_message(sockfd, buffer);
-            client_write_data(sockfd,buffer); 
+            client_write_data(sockfd); 
             continue;
             }
 
             if (strncmp(buffer, "read ", 5) == 0) {
             send_message(sockfd, buffer);
-            client_read_data(sockfd,buffer); 
+            client_read_data(sockfd); 
             continue;
             }
             

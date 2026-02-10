@@ -78,7 +78,7 @@ void sys_make_directory(const char *path, mode_t mode, const char *groupname, co
 
     
 }
-//redundand because is made only  for command create.
+//redundand because is made only for command create.
 void sys_make_directory_creat(const char *path, mode_t mode) {
 
     struct stat st;
@@ -238,7 +238,6 @@ long long get_directory_content_size(const char *path) {
 int check_home_violation(char* resolved_path, int client_fd, Session *s){
     char allowed_root[PATH_MAX];
     snprintf(allowed_root, PATH_MAX, "/%s", s->username);
-
     size_t root_len = strlen(allowed_root);
 
     if (strncmp(resolved_path, allowed_root, strlen(allowed_root)) != 0) {
@@ -274,7 +273,7 @@ int check_home_violation_r(char* resolved_path, int client_fd, Session *s){
 //function that take in input an absolute path with filename not yet created, 
 //so we disconnect the parent dir from the filename and then we add it again at the end, to check the realpath and violation 
 int resolve_safe_create_path(char *raw_input, int client_fd, Session *s, char *final_path_out) {
-int resolve_safe_create_path(char *raw_input, int client_fd, Session *s) {
+
     char parent_dir[PATH_MAX];
     char filename_part[64];
     char resolved_parent[PATH_MAX];
@@ -405,7 +404,7 @@ char *custom_basename(char *path) {
         return path;
     }
 
-    // Se lo slash è l'ultimo carattere (es. "cartella/"), 
+    // Se lo slash è l'ultimo carattere, 
     // l'utente sta puntando a una directory.
     if (*(last_slash + 1) == '\0') {
         return ""; // Restituisce stringa vuota per indicare "nessun file dopo lo slash"

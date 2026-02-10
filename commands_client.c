@@ -906,9 +906,9 @@ void upload (int client_fd, char* command_args, Session *s){
     }
 
 
-    if (resolve_safe_create_path(filepath, client_fd, s) == -1) {
-        return;
-    }
+    // if (resolve_safe_create_path(filepath, client_fd, s) == -1) {
+    //     return;
+    // }
 
     printf("Incoming file: %s (%ld bytes)\n", filepath, filesize);
 
@@ -1108,9 +1108,9 @@ void download(int client_fd, char* command_args, Session *s){
     }
 
     
-    if (resolve_safe_create_path(filepath, client_fd, s) == -1) {
-        return;
-    }
+    // if (resolve_safe_create_path(filepath, client_fd, s) == -1) {
+    //     return;
+    // }
 
     FILE *fp = fopen(filepath, "rb");
     if (fp == NULL) {
