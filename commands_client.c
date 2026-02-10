@@ -1138,3 +1138,41 @@ void download(int client_fd, char* command_args, Session *s){
     }
     
 }
+
+
+
+void handle_transfer_request(SharedMemory *shm, char *sender_name, char *filename, char *dest_name) {
+    int found_slot = -1;
+    int dest_pid = -1;
+
+    // 1. Cerca uno slot libero in requests e controlla se il destinatario è online
+    for (int i = 0; i < MAX_REQUESTS; i++) {
+        if (shm->requests[i].status == 0 && found_slot == -1) {
+            found_slot = i;
+        }
+    }
+    
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (shm->users[i].is_online && strcmp(shm->users[i].username, dest_name) == 0) {
+            dest_pid = shm->users[i].pid;
+            break;
+        }
+    }
+
+    if (found_slot == -1 || dest_pid == -1) {
+        printf("Errore: Memoria piena o destinatario non online.\n");
+        return;
+    }
+
+    // 2. Registra la richiesta
+    TransferRequest *req = &shm->requests[found_slot];
+    req->id = shm->global_id_counter++;
+    strcpy(req->sender, sender_name);
+    strcpy(req->receiver, dest_name);
+    strcpy(req->filename, filename);
+    req->status = 1; // Pending
+
+    // 3. Notifica il destinatario tramite segnale
+    printf("Richiesta %d creata. Notifico PID %d\n", req->id, dest_pid);
+    kill(dest_pid, SIGUSR1); 
+}

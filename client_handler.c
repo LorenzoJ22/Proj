@@ -17,7 +17,7 @@
 #include "shared.h"
 
 
-void sigchld_handler(int s) {
+void sigchld_handler() {
     // Salviamo errno perché waitpid potrebbe modificarlo
     // (e non vogliamo rovinare il lavoro del main se è stato interrotto)
     int saved_errno = errno;
@@ -73,9 +73,9 @@ void handle_client(int client_fd, const char *root_dir, SharedMemory *shm) {
         printf("[DEBUG] Buffer pulito: '%s' (lunghezza: %lu)\n", buffer, strlen(buffer));
 
          if (strlen(buffer) == 0) {
-            dprintf(client_fd,"Void space: '%s'\n", buffer);
-            char b[PATH_MAX];
-            dprintf(client_fd, "Current directory: %s\n",getcwd(b,PATH_MAX));
+            // dprintf(client_fd,"Void space: '%s'\n", buffer);
+            // char b[PATH_MAX];
+            // dprintf(client_fd, "Current directory: %s\n",getcwd(b,PATH_MAX));
             continue; 
         } 
 
@@ -92,7 +92,11 @@ void handle_client(int client_fd, const char *root_dir, SharedMemory *shm) {
             continue;
         }
 
-        /*Add here the if to check if the current user is logged in, so we don't have to repetly put it in every function*/
+        if (!s.logged_in) {
+            char msg[] = "Try another command while you are guest\n";
+            write(client_fd, msg, strlen(msg));
+            continue;
+        }
 
         //create [-d] <path><permission> command, create a file 
         if(strncmp(buffer, "create ", 7) ==0){
@@ -143,6 +147,12 @@ void handle_client(int client_fd, const char *root_dir, SharedMemory *shm) {
 
         if (strncmp(buffer, "download ", 9) == 0) {
             download(client_fd, buffer, &s);
+            continue;
+        }
+
+        if(strncmp(buffer, "transfer_request ",17)==0){
+            //char*us = shm->users->username;
+            //handle_transfer_request(shm, sender_name, filename, dest_name);
             continue;
         }
 

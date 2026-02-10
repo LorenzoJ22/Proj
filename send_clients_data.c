@@ -10,7 +10,7 @@
 #define SIZE 2048
 
 
-void client_write_data(int sockfd, char *buffer) {
+void client_write_data(int sockfd) {
     sleep(0.5);
     char file_buf[1024];
     
@@ -60,7 +60,7 @@ void client_write_data(int sockfd, char *buffer) {
     }else if (strncmp(err, "ER_FIL", 6) == 0) {//file already blocked
         printf(COLOR_RED "Error: Is not possible to open the file .\n" COLOR_RESET);
         return;
-    }//else if(strncmp(err, "OK",2)==0){
+    }else{return;}//else if(strncmp(err, "OK",2)==0){
     //     memset(err,0,sizeof(err));
     //     printf("Perfect we can take input\n");
     // }
@@ -96,14 +96,14 @@ void client_write_data(int sockfd, char *buffer) {
     // ...incontrerà receive_message() che leggerà "File salvato correttamente".
 }
 
-void client_read_data(int sockfd,char *buffer) {
+void client_read_data(int sockfd) {
     char file_buf[SIZE];
 
     char path[64];
-    if (sscanf(buffer+5, "%63s", path) != 1) {
-        printf(COLOR_YELLOW"Usage: read -offset=<num> <path>\n"COLOR_RESET);
-        return;
-    }
+    // if (sscanf(buffer+5, "%63s", path) != 1) {
+    //     printf(COLOR_YELLOW"Usage: read -offset=<num> <path>\n"COLOR_RESET);
+    //     return;
+    // }
     //write_client(sockfd, buffer);
     // char err[64];
     // ssize_t g =read()

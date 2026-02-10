@@ -6,6 +6,6 @@
 
 void handle_client(int client_fd, const char *root_dir, SharedMemory *shm);
 void send_prompt(int client_fd, Session *s);
-void sigchld_handler(int s);
+void sigchld_handler();
 
 #endif
