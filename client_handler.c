@@ -4,6 +4,7 @@
 #include "values.h"
 #include "permissions.h"
 #include "commands_client.h"
+#include "network.h"
 
 #include <unistd.h>
 #include <stdio.h>
@@ -14,19 +15,23 @@
 #include <errno.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include "shared.h"
+
+int incoming_request = 0;
 
 
-void sigchld_handler(int s) {
-    // Salviamo errno perché waitpid potrebbe modificarlo
-    // (e non vogliamo rovinare il lavoro del main se è stato interrotto)
+void sigchld_handler() {
+
     int saved_errno = errno;
-
-    // while loop: Perché?
-    // Perché se muoiono 5 figli contemporaneamente, potremmo ricevere
-    // un solo segnale SIGCHLD. Dobbiamo raccoglierli tutti in un colpo solo.
     while(waitpid(-1, NULL, WNOHANG) > 0);
 
     errno = saved_errno;
+}
+
+void signal_handler(int signum) {
+    if(signum == SIGUSR1){
+        incoming_request = 1;
+    }
 }
 
 
@@ -48,23 +53,56 @@ void send_prompt(int client_fd, Session *s) {
 }
 
 
-void handle_client(int client_fd, const char *root_dir) {
+void handle_client(int client_fd, const char *root_dir, SharedMemory *shm) {
 
     Session s;
     session_init(&s, root_dir);
 
     char buffer[1024];
 
-    
-    //send_prompt(client_fd, &s);
-
-    
+ 
     while (1) {
+
+        memset(buffer, 0, sizeof(buffer)); // clear buffer
+
+        
+
+        if(incoming_request) {
+           
+            printf("[FIGLIO %d] Controllo richieste pendenti...\n", getpid());
+            int id =notify_transfer_requests(client_fd, shm, &s);
+
+            int g = read(client_fd, buffer, sizeof(buffer)-1);
+
+            if (g <= 0) {
+                unregister_user(shm, s.username);
+                break; // connection closed or error
+            }
+
+            if(strncmp(buffer, "accept ", 7) == 0 && (incoming_request == 1)){
+                accept_transfer_request(client_fd, buffer, shm, &s);
+                incoming_request = 0;
+                continue;
+            } else if(strncmp(buffer, "reject", 6) == 0){
+                    sem_wait(&shm->semaphore);
+                    shm->requests[id].outcome = 2; // rejected
+                    sem_post(&shm->semaphore);
+                    char msg[] = "Transfer request rejected\n";
+                    write(client_fd, msg, strlen(msg));
+                    incoming_request = 0;
+                    continue;
+            }
+            send_message(client_fd, "No valid response received for transfer request. Please respond with 'accept <directory> <request_id>' or 'reject'.\n");
+            continue;
+        }
 
         memset(buffer, 0, sizeof(buffer)); // clear buffer
         send_prompt(client_fd, &s);
         int n = read(client_fd, buffer, sizeof(buffer)-1);
-        if (n <= 0) break; // connection closed or error
+        if (n <= 0) {
+            unregister_user(shm, s.username);
+            break; // connection closed or error
+        }
         printf("[FIGLIO %d] Messaggio ricevuto: %s\n", getpid(), buffer);
         printf("[DEBUG] Buffer pulito: '%s' (lunghezza: %lu)\n", buffer, strlen(buffer));
 
@@ -77,7 +115,7 @@ void handle_client(int client_fd, const char *root_dir) {
 
         // login command
         if (strncmp(buffer, "login ", 6) == 0) {
-            login(buffer, client_fd, &s);
+            login(buffer, client_fd, &s, shm);
             continue;
         }
         
@@ -142,6 +180,12 @@ void handle_client(int client_fd, const char *root_dir) {
             continue;
         }
 
+        if(strncmp(buffer, "transfer_request ", 17)==0){
+            transfer_request(client_fd, buffer, shm, &s);
+            continue;
+        }
+
+
 
         //if not logged in, only allow login command
         if (!s.logged_in) {
@@ -155,26 +199,11 @@ void handle_client(int client_fd, const char *root_dir) {
         char msg[] = "Unknown command \n";
         write(client_fd, msg, strlen(msg));
         
-        //dprintf(client_fd,"The input was buffer = '%s'\n", buffer);
-        /* char terminator = '\0'; 
-        write(client_fd, &terminator, 1); */
-        //memset(buffer, 0, sizeof(buffer));
-        //send_prompt(client_fd, &s);
 
         
     }
 
-    
-
-    // read message
-    int n = read(client_fd, buffer, sizeof(buffer));
-    if (n > 0) {
-        printf("[FIGLIO %d] Messaggio ricevuto da fine: %s\n", getpid(), buffer);
-    }
-
-    // send response
-    char response[] = "Ciao dal server!";
-    write(client_fd, response, strlen(response) + 1);
+ 
 
     close(client_fd);
 }

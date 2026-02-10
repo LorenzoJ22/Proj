@@ -18,6 +18,10 @@
 #include "permissions.h"
 #include "system_ops.h"
 #include "values.h"
+#include "shared.h"
+
+
+
 
 
 
@@ -65,6 +69,44 @@ int main (int argc, char *argv[]) {
         exit(1);
     }
 
+    //int incoming_request = 0;
+    memset(&sa, 0, sizeof(sa));
+
+    sa.sa_handler = signal_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART;
+
+    if (sigaction(SIGUSR1, &sa, NULL) == -1) {
+        perror("sigaction");
+        exit(1);
+    }
+
+    // Create shared memory
+    int shm_id = shmget(IPC_PRIVATE, sizeof(SharedMemory), IPC_CREAT |IPC_EXCL| 0666);
+    
+    if (shm_id < 0) {
+        perror("shmget");
+        exit(1);
+    }
+
+
+    SharedMemory *shm = (SharedMemory *)shmat(shm_id, NULL, 0);
+    if (shm == (SharedMemory *) -1) {
+        perror("shmat");
+        exit(1);
+    }
+
+    memset(shm, 0, sizeof(SharedMemory));
+    shm->global_id_counter = 1;
+
+     if(sem_init(&shm->semaphore, 1, 1) == -1) {
+        perror("sem_init");
+        exit(1);
+    }
+
+    int r1;
+    int r2;
+
     while(1){
 
         FD_ZERO(&readfds);
@@ -95,7 +137,27 @@ int main (int argc, char *argv[]) {
                 if (strcmp(buffer, "exit\n") == 0) {
                     printf(COLOR_RED"Shutting down server...\n"COLOR_RESET);
                     close(server_fd);
+                    
+
+                    sem_destroy(&shm->semaphore);
+                    r1= shmdt(shm);
+
+                     if (r1 == -1) {
+                            perror("shmdt");
+                        } else {
+                            printf("Shared memory detached successfully.\n");
+                    }
+
+                    r2 = shmctl(shm_id, IPC_RMID, NULL);
+
+                    if (r2 == -1) {
+                        perror("shmctl");
+                    } else {
+                        printf("Shared memory marked for deletion successfully.\n");
+                    }
+
                     kill(0, SIGTERM);
+
                     return 0;
                 }else {
                     printf(COLOR_YELLOW"Unknown command, enter 'exit' to quit"COLOR_RESET);
@@ -124,7 +186,7 @@ int main (int argc, char *argv[]) {
             if (pid == 0) {
                 // Child process
                 close(server_fd); // Close the listening socket in child
-                handle_client(client_fd, root_dir);
+                handle_client(client_fd, root_dir, shm);
                 exit(0);
             }
 
@@ -132,42 +194,35 @@ int main (int argc, char *argv[]) {
 
         }
 
-
-        // int client_fd = accept_connection(server_fd);
-        // printf("Client connected\n");
-
-
-        // if (client_fd < 0) continue; //if accept failed, continue to next iteration
-
-        // pid_t pid = fork();
-
-        // if (pid < 0) {
-        //     perror("Fork failed");
-        //     close(client_fd);
-        //     continue;
-        // }
-        
-        
-        // if (pid == 0) {
-        //     // Child process
-        //     close(server_fd); // Close the listening socket in child
-        //     handle_client(client_fd, root_dir);
-        //     exit(0);
-        // } 
-            
-
-        //  close(client_fd); // Close the connected socket in parent
-        
-
-        
+ 
     }
 
     
 
+    
+
+    
+
+    sem_destroy(&shm->semaphore);
+    r1 =shmdt(shm);
+     if (r1 == -1) {
+        perror("shmdt");
+    } else {
+        printf("Shared memory detached successfully.\n");
+    }
+    r2 =shmctl(shm_id, IPC_RMID, NULL);
+
+        if (r2 == -1) {
+            perror("shmctl");
+        } else {
+            printf("Shared memory marked for deletion successfully.\n");
+        }
+   
+
+    
     close(server_fd);
     return 0;
 
-
-
+    
 
 }

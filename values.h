@@ -3,7 +3,7 @@
 
 
 #define GROUP_NAME "csap_group"
-#define PATH_MAX        2048
+#define PATH_MAX    4096
 #define BUFFER_SIZE 4096
 
 #define COLOR_RED "\033[31m"
