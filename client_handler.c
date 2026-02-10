@@ -107,9 +107,9 @@ void handle_client(int client_fd, const char *root_dir, SharedMemory *shm) {
         printf("[DEBUG] Buffer pulito: '%s' (lunghezza: %lu)\n", buffer, strlen(buffer));
 
          if (strlen(buffer) == 0) {
-            dprintf(client_fd,"Void space: '%s'\n", buffer);
-            char b[PATH_MAX];
-            dprintf(client_fd, "Current directory: %s\n",getcwd(b,PATH_MAX));
+            // //dprintf(client_fd,"Void space: '%s'\n", buffer);
+            // char b[PATH_MAX];
+            // dprintf(client_fd, "Current directory: %s\n",getcwd(b,PATH_MAX));
             continue; 
         } 
 
@@ -167,7 +167,7 @@ void handle_client(int client_fd, const char *root_dir, SharedMemory *shm) {
         if(strncmp(buffer, "read ", 5)==0){
             read_client(client_fd, buffer, &s);
             sleep(0.5);
-          continue;
+            continue;
         }
 
         if (strncmp(buffer, "upload ", 7) == 0) {
