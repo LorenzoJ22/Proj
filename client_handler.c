@@ -40,12 +40,10 @@ void send_prompt(int client_fd, Session *s) {
     char prompt[4190];
     
     if (s->logged_in) {
-        // Formato: username@shell:/path/corrente$ 
         char cwd[PATH_MAX];
         snprintf(prompt, sizeof(prompt), "\033[1;32m%s@shell\033[0m:\033[1;34m%s\033[0m$ ", 
                  s->username, /* s->current_dir */ getcwd(cwd, PATH_MAX));
     } else {
-        // Formato: guest:/path/corrente$
         snprintf(prompt, sizeof(prompt), "guest:%s$ ", s->current_dir);
     }
     
@@ -103,13 +101,10 @@ void handle_client(int client_fd, const char *root_dir, SharedMemory *shm) {
             unregister_user(shm, s.username);
             break; // connection closed or error
         }
-        printf("[FIGLIO %d] Messaggio ricevuto: %s\n", getpid(), buffer);
-        printf("[DEBUG] Buffer pulito: '%s' (lunghezza: %lu)\n", buffer, strlen(buffer));
+        printf("[Pid %d] Message received: %s\n", getpid(), buffer);
+        
 
          if (strlen(buffer) == 0) {
-            // //dprintf(client_fd,"Void space: '%s'\n", buffer);
-            // char b[PATH_MAX];
-            // dprintf(client_fd, "Current directory: %s\n",getcwd(b,PATH_MAX));
             continue; 
         } 
 
@@ -126,7 +121,7 @@ void handle_client(int client_fd, const char *root_dir, SharedMemory *shm) {
             continue;
         }
 
-        /*Add here the if to check if the current user is logged in, so we don't have to repetly put it in every function*/
+        
 
         //create [-d] <path><permission> command, create a file 
         if(strncmp(buffer, "create ", 7) ==0){

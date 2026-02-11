@@ -6,16 +6,8 @@
 
 void register_user(SharedMemory *shm, const char *username) {
 
-
-    int val;
-sem_getvalue(&shm->semaphore, &val);
-printf("[DEBUG] PID %d sta per fare wait. Valore attuale semaforo: %d\n", getpid(), val);
-
-
-
-
     sem_wait(&shm->semaphore);
-    printf("Superato il semaforo");
+
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (shm->users[i].is_online == 0) { //if we found a spot that is free, we register the user there
 

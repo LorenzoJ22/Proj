@@ -74,7 +74,7 @@ void session_init(Session *s, const char *root) {
     s->current_dir[0] = '\0';
     s->home_dir[0] = '\0';
     
-    //chdir(s->root_dir); // set current working directory to root directory
+    
 }
 
 int session_login(Session *s, const char *username) {
@@ -92,7 +92,7 @@ int session_login(Session *s, const char *username) {
         printf("Login failed: User '%s' does not exist or is not in the group '%s'\n", username, GROUP_NAME);
         return -1; // login failed
     }
-    //aggiunta controllo home se esiste
+    
 
     // switch to the user's UID and GID
 
@@ -136,13 +136,4 @@ int session_login(Session *s, const char *username) {
 
     return 0; // login successful
 
-    } 
-
-    /*int session_update_dir(Session *s, const char *path){
-        strncpy(s->parent_dir, s->current_dir, sizeof(s->current_dir));
-        strncpy(s->current_dir, path, sizeof(s->current_dir)); // set current directory to home directory
-        printf("Set current directory to: %s\n", s->current_dir);
-
-         
-
-}*/
+    }

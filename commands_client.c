@@ -31,7 +31,9 @@ void login( char *buffer, int client_fd, Session *s, SharedMemory *shm){
              // send login result to client
                 char username[64];
                 sscanf(buffer + 6, "%63s", username);
+
                 int login_result = session_login(s, username);
+
             if (login_result == 0) {
                 char msg[] = "Login successful\n";
                 write(client_fd, msg, strlen(msg));
@@ -153,7 +155,7 @@ void create(int client_fd, char *buffer, Session *s){
 
             mode_t perms = strtol(perm_str, NULL, 8); // convert permissions string to mode_t
             char full_path[PATH_MAX + 1000];
-            /*^ we have increase this parameter to not have warnings^*/
+            
             
             char parent_dir[PATH_MAX];
             char filename_part[64];
@@ -289,7 +291,7 @@ void change_directory(int client_fd, char *buffer, Session *s) {
         write(client_fd, msg, strlen(msg));
         return;
     }
-    dprintf(client_fd, "Path reale: %s\n", resolved_path);
+    dprintf(client_fd, "Real path: %s\n", resolved_path);
     
     if(check_home_violation(resolved_path, client_fd, s)==-1) return;
     
@@ -341,7 +343,7 @@ void chmods(int client_fd, char *buffer, Session *s){
         write(client_fd, msg, strlen(msg));
         return;
         }
-        dprintf(client_fd, "Path reale: %s\n", full_path);
+        dprintf(client_fd, "Real path: %s\n", full_path);
     
         if(check_home_violation(full_path, client_fd, s)==-1) return;
 
@@ -401,21 +403,12 @@ void move(int client_fd, char* buffer, Session *s){
             write(client_fd, msg, strlen(msg));
             return;
         }
-        // char path_src[64];
-        // char path_dest[64];  
-
-        // if (sscanf(buffer + 5, "%63s %63s", path_src, path_dest) != 2 ) {
-        //         char msg[] = COLOR_YELLOW"Use: move <path1> <path2>\n"COLOR_RESET;
-        //         write(client_fd, msg, strlen(msg));
-        //         return;
-        // }
         
         dprintf(client_fd,"Il path_src: %s\n", path_src);
         dprintf(client_fd,"Il path_dest: %s\n", path_dest);
 
         char full_path_src[PATH_MAX+1000];
-        //char full_path_dest[PATH_MAX+1000];
-        //now we have to normalize the two path passed and chek also if they are absolute or relative
+
 
         if (realpath(path_src, full_path_src) == NULL) {
         // Errore: la cartella non esiste o permessi negati nella risoluzione
@@ -423,16 +416,13 @@ void move(int client_fd, char* buffer, Session *s){
             return;
         }
 
-        // if(realpath(path_dest, full_path_dest) == NULL){
-        //     dprintf(client_fd, COLOR_RED"Error: Cannot resolve path '%s': %s\n"COLOR_RESET, path_dest, strerror(errno));
-        //     return;
-        // }
+       
 
         dprintf(client_fd, "Path reale_src: %s\n", full_path_src);
-        //dprintf(client_fd, "Path reale_dest: %s\n", full_path_dest);
+        
     
         if(check_home_violation(full_path_src, client_fd, s)==-1) return;
-        //if(check_home_violation(full_path_dest, client_fd, s)==-1) return;
+        
         
         
     char full_path_dest_res[PATH_MAX+1000];
@@ -504,7 +494,7 @@ void list(int client_fd, char *buffer, Session *s) {
         }
     }
 
-    //dprintf(client_fd, "Path richiesto: %s\n", path);
+    
 
     char full_path[PATH_MAX + 1000];
     
@@ -514,7 +504,7 @@ void list(int client_fd, char *buffer, Session *s) {
     }
 
 
-    //dprintf(client_fd, "Path assoluto risolto: %s\n", full_path);
+    
 
     // 4. Apertura della directory
     DIR *d = opendir(full_path);
@@ -607,7 +597,7 @@ void delete(int client_fd, char* buffer, Session *s){
         return;
     }
     
-    dprintf(client_fd, "Path richiesto: %s\n", path);
+    dprintf(client_fd, "Requested Path: %s\n", path);
 
     char full_path[PATH_MAX + 1000];
 
@@ -625,20 +615,6 @@ void delete(int client_fd, char* buffer, Session *s){
         return;
     }
 
-    /*control that full_path is not a directory*/
-    // struct stat st;
-    // if (fstat(fd, &st) != 0) {
-    //     perror("File not found\n");
-    //     return;
-    // }
-
-    // if (S_ISDIR(st.st_mode)) {
-    //     // E' una directory
-    //     // Invia al client "ERROR_IS_DIR" (magari in rosso!)
-    //     printf("Error: %s is a directory.\n", path);
-    //     unlock(fd);
-    //     close(fd);
-    // } else 
 
     if(lock_commands(fd,client_fd,1,0)!=0){
         return;
@@ -662,8 +638,6 @@ void delete(int client_fd, char* buffer, Session *s){
 
 void write_client(int client_fd, char* buffer, Session *s){
     if (!(s->logged_in)) {
-        // char msg[] = "GUES_ERR";
-        // write(client_fd, msg, 9);
         uint32_t codice = htonl(RESP_ERR_GUEST); // Converte l'1 in formato rete
         write(client_fd, &codice, sizeof(uint32_t));
         return;
@@ -683,24 +657,21 @@ void write_client(int client_fd, char* buffer, Session *s){
         if( (i=sscanf(args, "%ld%n", &num, &consumed))==1){//%*[^0-9]%d  ---> hop all the non integer input , %n per contare
         args += consumed;
         if(num<0){
-        // write(client_fd, "OFF_UNDER",9);
-        // printf("Offset not vaild too small!\n");
+  
         uint32_t codice = htonl(RESP_ERR_OFFSET_UNDER); 
         write(client_fd, &codice, sizeof(uint32_t));
         return;
         }
         // Now args point to the beginnig of the path
     }else{
-        // write(client_fd,"NO_OFF",6);
-        // printf("Fail to save num\n");
+
         uint32_t codice = htonl(RESP_ERR_NO_OFFSET); 
         write(client_fd, &codice, sizeof(uint32_t));
         return;
     }
         printf("args e': %s, cosumed:%d,scanf readed %d\n", args, consumed, i);
     }else if(strncmp(args, "-offset", 7)==0){
-        // write(client_fd,"US",2);
-        // printf("Fail to save off\n");
+ 
         uint32_t codice = htonl(RESP_USAGE); 
         write(client_fd, &codice, sizeof(uint32_t));
         return;
@@ -711,8 +682,7 @@ void write_client(int client_fd, char* buffer, Session *s){
 
     //Logica di parsing, and we add to args the number length and a space..
     if (sscanf(args, "%63s", path) != 1) {
-        // write(client_fd,"ERROR",5);
-        //dprintf(client_fd,"Usage: from server write -offset=<num> <path>\n");
+
         uint32_t codice = htonl(RESP_USAGE); 
         write(client_fd, &codice, sizeof(uint32_t));
         return;
@@ -751,40 +721,37 @@ void write_client(int client_fd, char* buffer, Session *s){
         }
 
          if (strlen(filename_part) == 0) {
-            //  char msg[] = COLOR_RED "Error: Invalid file name (trailing slash?)\n" COLOR_RESET;
-            //  write(client_fd, msg, strlen(msg));
+ 
             uint32_t codice = htonl(RESP_ERR_INVALID_FILE_N);
             write(client_fd, &codice, sizeof(uint32_t));
             return;
             }
             if (strcmp(filename_part, ".") == 0 || strcmp(filename_part, "..") == 0) {
-                // char msg[] = COLOR_RED"Error: Cannot name a file or directory '.' or '..'\n"COLOR_RESET;
-                // write(client_fd, msg, strlen(msg));
+
                 uint32_t codice = htonl(RESP_ERR_INVALID_DOT);
                 write(client_fd, &codice, sizeof(uint32_t));
                 return;
             }
             if (strstr(filename_part, "-")) {
-                // char msg[] = "INVALID_NAME";
-                // write(client_fd, msg, strlen(msg));
+ 
                 uint32_t codice = htonl(RESP_ERR_INVALID_NAME);
                 write(client_fd, &codice, sizeof(uint32_t));
-                //printf(COLOR_RED "Error: You cannot name file with initial ' - '\n" COLOR_RESET);
+
                 return;
             }
             
             
             if (realpath(parent_dir, resolved_parent) == NULL) {
-                //write(client_fd, "ER_PATH",7);
+
                 uint32_t codice = htonl(RESP_ERR_PATH);
                 write(client_fd, &codice, sizeof(uint32_t));
-                //dprintf(client_fd, COLOR_RED"Error: Destination directory not found or access denied (%s)\n"COLOR_RESET, strerror(errno));
+
                 return;
             }
             
             //check for home violation creation
             if(check_home_violation_r(resolved_parent, client_fd, s)==-1) {
-                //write(client_fd, "ER_VIOL",7);
+
                 uint32_t codice = htonl(RESP_ERR_VIO);
                 write(client_fd, &codice, sizeof(uint32_t));
                 return;
@@ -797,12 +764,11 @@ void write_client(int client_fd, char* buffer, Session *s){
             if(is_set){
                 file_fd = open(full_path, O_CREAT | O_RDWR, S_IRWXU);
             }else{
-                file_fd = open(full_path, O_CREAT | O_WRONLY | O_APPEND, S_IRWXU); //ci andrebbe append al posto di trunc
+                file_fd = open(full_path, O_CREAT | O_WRONLY | O_APPEND, S_IRWXU); 
             }
             
             if (file_fd < 0) {
-                // write(client_fd,"ER_FIL",6);
-                // dprintf(client_fd, "Error creating/open file '%s': %s\n", full_path, strerror(errno));
+
                 uint32_t codice = htonl(RESP_ERR_OPEN);
                 write(client_fd, &codice, sizeof(uint32_t));
                 return;
@@ -823,15 +789,14 @@ void write_client(int client_fd, char* buffer, Session *s){
 
     //check if the offset length is longer than the file size.
     if(is_set && size < num){
-        //write(client_fd, "OFF_ER",6);
-        //dprintf(client_fd,COLOR_RED"Error: offset length too long!\n"COLOR_RESET);
+
         uint32_t codice = htonl(RESP_ERR_OFFSET_LONG);
         write(client_fd, &codice, sizeof(uint32_t));
         unlock(file_fd);
         close(file_fd); 
         return;
      }else{
-        //write(client_fd, "OK", 2);
+ 
         uint32_t codice = htonl(RESP_OK);
         write(client_fd, &codice, sizeof(uint32_t));
     }
@@ -926,7 +891,6 @@ void upload (int client_fd, char* command_args, Session *s){
 
     char *ack = "READY";
     send_message(client_fd, ack);
-    //send(client_fd, ack, strlen(ack), 0);
 
     char buffer[BUFFER_SIZE];
     long total_received = 0;
@@ -948,7 +912,7 @@ void upload (int client_fd, char* command_args, Session *s){
         total_received += bytes_received;
         printf("\r[Server] Received: %ld / %ld \n", total_received, filesize);
     }
-    sleep(10);
+    
     fflush(fp);
     fclose(fp);
 
@@ -1158,7 +1122,7 @@ void download(int client_fd, char* command_args, Session *s){
                 printf("\r[Client] Send: %ld byte...", bytes_sent);
             }
     }
-    sleep(10);
+    
     fclose(fp);
     printf("Waiting for server confirmation...\n");
 
@@ -1174,7 +1138,7 @@ void download(int client_fd, char* command_args, Session *s){
         }
     }
 
-    //unlock(fd);
+    
     
 }
 
@@ -1222,7 +1186,7 @@ void transfer_request(int client_fd, char* buffer, SharedMemory *shm, Session *s
 
             }
             sem_post(&shm->semaphore);
-            sleep(2);
+            sleep(1);
         }
 
         if(sem_wait(&shm->semaphore) == -1){
@@ -1270,14 +1234,13 @@ void transfer_request(int client_fd, char* buffer, SharedMemory *shm, Session *s
             return;
         }
 
-        // if (req_idx == -1) {
-        //     send_message(client_fd, "Error: Server busy (too many requests).\n");
-        //     return;
-        // }
+
+
+        gid_t original_gid = getegid();
 
         if (seteuid(0) < 0) {
-            perror("Impossibile tornare root");
-            // Gestisci errore
+            perror("Cannot elevate privileges to send signal");
+            return;
         }
 
         printf("Sending signal to target user with PID %d\n", target_pid);
@@ -1286,6 +1249,10 @@ void transfer_request(int client_fd, char* buffer, SharedMemory *shm, Session *s
             perror("Error sending signal to target user");
             send_message(client_fd, "Error: Failed to notify target user.\n");
             return;
+        }
+
+        if(seteuid(original_gid) < 0) {
+            perror("Error restoring original user ID");
         }
 
         printf("Signal sent successfully. Waiting for response...\n");
@@ -1304,7 +1271,7 @@ void transfer_request(int client_fd, char* buffer, SharedMemory *shm, Session *s
                 break;
             }
             sem_post(&shm->semaphore);
-            sleep(2);
+            sleep(1);
         }
 
     }
@@ -1366,13 +1333,7 @@ void accept_transfer_request(int client_fd, char* buffer, SharedMemory *shm, Ses
         return;
     }
 
-    // int src = open(full_path, O_RDONLY);
-    // if (src == -1) {
-    //     send_message(client_fd, "Error: Source file not found.\n");
-    //     return;
-    // }
 
-    // int dst = open(directory, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
     FILE *src = fopen(full_path, "rb");
     if (!src) {

@@ -20,7 +20,7 @@ int can_exit() {
     pid_t pid;
 
     while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-        printf("\n[BG] Nota: Il processo background %d è terminato proprio ora.\n", pid);
+        printf("\nProcess %d terminated\n", pid);
     }
     if (waitpid(-1, NULL, WNOHANG) == 0) {
         return 0; 
@@ -145,82 +145,6 @@ int main(int argc, char *argv[]){
             send_message(sockfd, buffer);
         }
 
-
-        // memset(buffer, 0, sizeof(buffer)); 
-        // int total_read = 0;
-
-        
-        // int n= receive_message(sockfd, buffer, sizeof(buffer)-1);
-        // if(n <=0){
-        //     printf("Connection closed by server\n");
-        //     break;
-        // }
-                
-        // printf("Size: %ld and Response from server:%s",strlen(buffer), buffer);
-        // memset(buffer, 0, sizeof(buffer));
-        
-        //send_message(sockfd, buffer);
-        
-        
-        // fgets(buffer, sizeof(buffer), stdin);
-        // buffer[strcspn(buffer, "\n")] = 0; //remove newline character
-        
-
-
-        
-        // if (strncmp(buffer, "upload", 6) == 0) {
-
-        //     int background_mode = 0;
-        //     char *local_path = NULL;
-        //     char *remote_path = NULL;
-
-        //     char *token = strtok(buffer, " \n"); // first token is "upload"
-
-        //     token = strtok(NULL, " \n"); // second token is the local path
-
-        //     if (token == NULL) {
-        //         printf("Uso: upload [-b] <local_path> <server_path>\n");
-        //         continue;
-        //     }
-
-        //     if (strcmp(token, "-b") == 0) {
-        //         // Trovata opzione background!
-        //         background_mode = 1;
-                
-        //         // Il prossimo token deve essere il local_path
-        //         local_path = strtok(NULL, " \n");
-        //     } else {
-        //         // Non c'è -b, quindi questo token è già il local_path
-        //         local_path = token;
-        //     }
-
-
-        //     if (local_path != NULL) {
-        //         remote_path = strtok(NULL, " \n");
-        //     }
-
-
-        //     if (local_path == NULL || remote_path == NULL) {
-        //         printf("Error: Missing arguments.\n");
-        //         printf("Usage: upload [-b] <local_path> <server_path>\n");
-        //         continue;
-        //     }
-
-        //     printf("[DEBUG] Local: %s | Remote: %s | Bg: %d\n", local_path, remote_path, background_mode);
-            
-        //     upload_file(sockfd, local_path, remote_path, background_mode);
-
-        //     send_message(sockfd, "");
-        //     continue;
-
-        // }
-        
-        // send_message(sockfd, buffer);
-        
-        // if(strcmp(buffer, "exit") == 0){
-        //     break;
-        // }
-        
     }
     
 

@@ -167,17 +167,17 @@ int perform_upload_logic(int sockfd, const char *local_path, const char *remote_
             }
         }
 
-        printf("File inviato. Attendo conferma dal server...\n");
+        printf("File transfer complete.\n");
 
     char ack[64] = {0};
     // Questa recv blocca il client finché il server non ha finito VERAMENTE di leggere
     if (recv(sockfd, ack, sizeof(ack), 0) <= 0) {
-        perror("Errore ricezione conferma");
+        perror("Error receiving final ACK");
     } else {
         if (strncmp(ack, "SUCCESS", 7) == 0) {
             printf(COLOR_GREEN"File uploaded successfully.\n"COLOR_RESET);
         } else {
-            printf("Errore dal server: %s\n", ack);
+            printf(COLOR_RED"Error from server: %s\n"COLOR_RESET, ack);
         }
     }
 
@@ -208,7 +208,7 @@ void upload_file (int sockfd, const char *local_path, const char *remote_path, i
         if (pid == 0) {
             // Child process
             int bg_sockfd = connect_to_server(server_ip, server_port);
-            printf(COLOR_YELLOW"[BG] Connesso. Inizio trasferimento...\n"COLOR_RESET);
+            printf(COLOR_YELLOW"[BG] Connected to server in background mode\n"COLOR_RESET);
 
 
             if (strlen(username) > 0) {
@@ -216,7 +216,7 @@ void upload_file (int sockfd, const char *local_path, const char *remote_path, i
                 char login_cmd[128];
                 sprintf(login_cmd, "login %s", username); // Ricostruisce il comando
 
-                printf(COLOR_YELLOW"[BG] Eseguo auto-login come '%s'...\n"COLOR_RESET, username);
+                printf(COLOR_YELLOW"[BG] Logging in as '%s'...\n"COLOR_RESET, username);
 
                 send(bg_sockfd, login_cmd, strlen(login_cmd), 0);
 
@@ -375,14 +375,14 @@ void download_file(int sockfd, const char *remote_path, const char *local_path, 
 
             // Child process
             int bg_sockfd = connect_to_server(server_ip, server_port);
-            printf(COLOR_YELLOW"[BG] Connesso. Inizio trasferimento...\n"COLOR_RESET);
+            printf(COLOR_YELLOW"[BG] Connected to server\n"COLOR_RESET);
             
             if (strlen(username) > 0) {
 
                 char login_cmd[128];
                 sprintf(login_cmd, "login %s", username); // Ricostruisce il comando
 
-                printf(COLOR_YELLOW"[BG] Eseguo auto-login come '%s'...\n"COLOR_RESET, username);
+                printf(COLOR_YELLOW"[BG] Logging in as '%s'...\n"COLOR_RESET, username);
 
                 send(bg_sockfd, login_cmd, strlen(login_cmd), 0);
 

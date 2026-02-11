@@ -204,7 +204,7 @@ void client_upload(int sockfd, char* buffer, char* ip, int port, char* current_u
     }
 
     if (strcmp(token, "-b") == 0) {
-        // Trovata opzione background!
+        // background mode requested!
         background_mode = 1;
                 
         // Il prossimo token deve essere il local_path
@@ -243,7 +243,7 @@ void client_download(int sockfd, char* buffer, char* ip, int port, char* current
                 token = strtok(NULL, " \n"); // second token is the remote path
 
                 if (token == NULL) {
-                    printf("Uso: download [-b] <server_path> <local_path>\n");
+                    printf(COLOR_YELLOW"Usage: download [-b] <server_path> <local_path>\n"COLOR_RESET);
                     send_message(sockfd, "");
                     return;
                 }

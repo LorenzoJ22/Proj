@@ -69,7 +69,6 @@ int main (int argc, char *argv[]) {
         exit(1);
     }
 
-    //int incoming_request = 0;
     memset(&sa, 0, sizeof(sa));
 
     sa.sa_handler = signal_handler;
