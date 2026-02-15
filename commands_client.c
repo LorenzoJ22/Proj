@@ -1165,11 +1165,11 @@ void transfer_request(int client_fd, char* buffer, SharedMemory *shm, Session *s
 
         char full_path[PATH_MAX];
 
-        if (realpath(filename, full_path) == NULL) {
-            dprintf(client_fd, COLOR_RED"Error: Cannot resolve file path '%s': %s\n"COLOR_RESET, filename, strerror(errno));
-            send_message(client_fd, COLOR_RED"ERROR: Cannot resolve file path.\n"COLOR_RESET);
-            return;
-        }
+        // if (realpath(filename, full_path) == NULL) {
+        //     dprintf(client_fd, COLOR_RED"Error: Cannot resolve file path '%s': %s\n"COLOR_RESET, filename, strerror(errno));
+        //     send_message(client_fd, COLOR_RED"ERROR: Cannot resolve file path.\n"COLOR_RESET);
+        //     return;
+        // }
         
 
         
@@ -1336,7 +1336,9 @@ void accept_transfer_request(int client_fd, char* buffer, SharedMemory *shm, Ses
 
 
     FILE *src = fopen(full_path, "rb");
-    if (!src) {
+    if(errno== EACCES){
+        send_message(client_fd, "Error: Permission denied");
+    }else if (!src) {
         send_message(client_fd, "Error: Source file not found.\n");
         return;
     }
